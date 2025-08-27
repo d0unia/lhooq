@@ -419,7 +419,7 @@ export default function App() {
                         }`}
                         title={format(d, "EEEE d MMMM")}
                       >
-                        {format(d, "d")}
+                        {format(d, "EEE d")}
                       </button>
                     );
                   })}
@@ -505,7 +505,8 @@ function SiteColumn({ title, siteId, iso, row, onSet }) {
   const assignedOnThisDay = new Set(Object.keys(row));
   const availableForQuickAdd = PEOPLE.filter((p) => {
     const currentAssignment = row[p.id];
-    return currentAssignment !== siteId; // Can add if not already in this location
+    const isOOO = currentAssignment === "OOO";
+    return currentAssignment !== siteId && !isOOO; // Can add if not already in this location and not OOO
   });
   
   return (
