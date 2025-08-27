@@ -241,6 +241,7 @@ export default function App() {
   const [hasGenerated, setHasGenerated] = useState(false);
   const [step1Collapsed, setStep1Collapsed] = useState(false);
   const [step2Collapsed, setStep2Collapsed] = useState(false);
+  const [step3Collapsed, setStep3Collapsed] = useState(true);
 
   const monthStart = useMemo(() => new Date(state.monthISO + "T00:00:00"), [state.monthISO]);
   const businessDays = useMemo(
@@ -506,40 +507,50 @@ export default function App() {
         </section>
 
         <section className="mb-10">
-          <h2 className="font-semibold mb-2">People & constraints (read-only in this demo)</h2>
-          <div className="bg-white border rounded-lg p-3 overflow-auto">
-            <div className="space-y-4">
-              {PEOPLE.map((p) => (
-                <div key={p.id} className="border-b last:border-0 pb-4 last:pb-0">
-                  <div className="font-medium mb-2">{p.name}</div>
-                  <div className="space-y-1">
-                    <div className="flex justify-between text-xs text-neutral-600">
-                      <span>🦌 GC {p.prefs.gcShare}%</span>
-                      <span>🏢 Issy {p.prefs.issyShare}%</span>
-                      <span>🏠 Remote {p.prefs.remoteShare}%</span>
-                    </div>
-                    <div className="flex h-3 rounded-full overflow-hidden bg-neutral-100">
-                      <div 
-                        className="bg-emerald-400"
-                        style={{ width: `${p.prefs.gcShare}%` }}
-                        title={`🦌 GC: ${p.prefs.gcShare}%`}
-                      />
-                      <div 
-                        className="bg-blue-400"
-                        style={{ width: `${p.prefs.issyShare}%` }}
-                        title={`🏢 Issy: ${p.prefs.issyShare}%`}
-                      />
-                      <div 
-                        className="bg-purple-400"
-                        style={{ width: `${p.prefs.remoteShare}%` }}
-                        title={`🏠 Remote: ${p.prefs.remoteShare}%`}
-                      />
+          <button
+            onClick={() => setStep3Collapsed(!step3Collapsed)}
+            className="flex items-center gap-2 font-semibold mb-2 hover:text-neutral-700"
+          >
+            <span className={`transform transition-transform ${step3Collapsed ? 'rotate-0' : 'rotate-90'}`}>
+              ▶
+            </span>
+            People & constraints
+          </button>
+          {!step3Collapsed && (
+            <div className="bg-white border rounded-lg p-3 overflow-auto">
+              <div className="space-y-4">
+                {PEOPLE.map((p) => (
+                  <div key={p.id} className="border-b last:border-0 pb-4 last:pb-0">
+                    <div className="font-medium mb-2">{p.name}</div>
+                    <div className="space-y-1">
+                      <div className="flex justify-between text-xs text-neutral-600 mb-1">
+                        <span>🦌 GC {p.prefs.gcShare}%</span>
+                        <span>🏢 Issy {p.prefs.issyShare}%</span>
+                        <span>🏠 Remote {p.prefs.remoteShare}%</span>
+                      </div>
+                      <div className="flex h-3 rounded-full overflow-hidden bg-neutral-100">
+                        <div 
+                          className="bg-emerald-400"
+                          style={{ width: `${p.prefs.gcShare}%` }}
+                          title={`🦌 GC: ${p.prefs.gcShare}%`}
+                        />
+                        <div 
+                          className="bg-blue-400"
+                          style={{ width: `${p.prefs.issyShare}%` }}
+                          title={`🏢 Issy: ${p.prefs.issyShare}%`}
+                        />
+                        <div 
+                          className="bg-purple-400"
+                          style={{ width: `${p.prefs.remoteShare}%` }}
+                          title={`🏠 Remote: ${p.prefs.remoteShare}%`}
+                        />
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
-          </div>
+          )}
         </section>
       </main>
     </div>
