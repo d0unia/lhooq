@@ -619,16 +619,7 @@ function computeUsage(plan, dayISOs) {
 }
 
 function describePrefs(prefs) {
-  const parts = [];
-  if (prefs.gcShare > 50) parts.push(`Prefers GC (${prefs.gcShare}%)`);
-  if (prefs.issyShare > 30) parts.push(`Likes Issy (${prefs.issyShare}%)`);
-  if (prefs.remoteShare > 60) parts.push(`Mostly remote (${prefs.remoteShare}%)`);
-  
-  if (parts.length === 0) {
-    return `GC: ${prefs.gcShare}%, Issy: ${prefs.issyShare}%, Remote: ${prefs.remoteShare}%`;
-  }
-  
-  return parts.join(', ');
+  return `GC: ${prefs.gcShare}%, Issy: ${prefs.issyShare}%, Remote: ${prefs.remoteShare}%`;
 }
 
 function generateCSV(state, businessDays, people) {
