@@ -35,7 +35,7 @@ const PEOPLE = [
   { id: "herve", name: "Hervé", prefs: { gcShare: 35, issyShare: 35, remoteShare: 30 } },
   { id: "mathilde", name: "Mathilde", prefs: { gcShare: 35, issyShare: 35, remoteShare: 30 } },
   { id: "rubie", name: "Rubie", prefs: { gcShare: 55, issyShare: 15, remoteShare: 30 } },
-  { id: "laurene", name: "Laurène", prefs: { gcShare: 20, issyShare: 20, remoteShare: 60 } },
+  { id: "lorraine", name: "Lorraine", prefs: { gcShare: 20, issyShare: 20, remoteShare: 60 } },
 ];
 
 const SITES = {
