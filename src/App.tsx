@@ -512,30 +512,28 @@ export default function App() {
               {PEOPLE.map((p) => (
                 <div key={p.id} className="border-b last:border-0 pb-4 last:pb-0">
                   <div className="font-medium mb-2">{p.name}</div>
-                  <div className="flex h-6 rounded-full overflow-hidden bg-neutral-200">
-                    <div 
-                      className="bg-neutral-400 flex items-center justify-center text-xs font-medium text-white"
-                      style={{ width: `${p.prefs.gcShare}%` }}
-                      title={`🦌 GC: ${p.prefs.gcShare}%`}
-                    >
-                      {p.prefs.gcShare > 15 && '🦌'}
-                      {p.prefs.gcShare > 25 && ` ${p.prefs.gcShare}%`}
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-xs text-neutral-600">
+                      <span>🦌 GC {p.prefs.gcShare}%</span>
+                      <span>🏢 Issy {p.prefs.issyShare}%</span>
+                      <span>🏠 Remote {p.prefs.remoteShare}%</span>
                     </div>
-                    <div 
-                      className="bg-neutral-500 flex items-center justify-center text-xs font-medium text-white"
-                      style={{ width: `${p.prefs.issyShare}%` }}
-                      title={`🏢 Issy: ${p.prefs.issyShare}%`}
-                    >
-                      {p.prefs.issyShare > 15 && '🏢'}
-                      {p.prefs.issyShare > 25 && ` ${p.prefs.issyShare}%`}
-                    </div>
-                    <div 
-                      className="bg-neutral-600 flex items-center justify-center text-xs font-medium text-white"
-                      style={{ width: `${p.prefs.remoteShare}%` }}
-                      title={`🏠 Remote: ${p.prefs.remoteShare}%`}
-                    >
-                      {p.prefs.remoteShare > 15 && '🏠'}
-                      {p.prefs.remoteShare > 25 && ` ${p.prefs.remoteShare}%`}
+                    <div className="flex h-3 rounded-full overflow-hidden bg-neutral-100">
+                      <div 
+                        className="bg-emerald-400"
+                        style={{ width: `${p.prefs.gcShare}%` }}
+                        title={`🦌 GC: ${p.prefs.gcShare}%`}
+                      />
+                      <div 
+                        className="bg-blue-400"
+                        style={{ width: `${p.prefs.issyShare}%` }}
+                        title={`🏢 Issy: ${p.prefs.issyShare}%`}
+                      />
+                      <div 
+                        className="bg-purple-400"
+                        style={{ width: `${p.prefs.remoteShare}%` }}
+                        title={`🏠 Remote: ${p.prefs.remoteShare}%`}
+                      />
                     </div>
                   </div>
                 </div>
