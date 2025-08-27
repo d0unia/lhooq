@@ -119,26 +119,26 @@ function generateSchedule({ monthStart, bubbleLuxDates, oooData, people = PEOPLE
   };
 
   // Process each day (excluding BubbleLux days)
-//  monthDays.forEach((d) => {
-  //  const iso = yyyyMMdd(d);
-    // if (bubbleLuxDates.includes(iso)) return; // already all Issy
+  monthDays.forEach((d) => {
+    const iso = yyyyMMdd(d);
+    if (bubbleLuxDates.includes(iso)) return; // already all Issy
 
     // 1) Fill GC first (priority location)
-   // const gcCandidates = people
-     // .filter((p) => plan[iso][p.id] === "REMOTE") // available (not OOO, not BubbleLux)
-     // .map((p) => ({
-      //  person: p,
-       // priority: calculateGCPriority(p, actualDays[p.id], targetDays[p.id])
-      // }))
-      // .sort((a, b) => b.priority - a.priority);
+    const gcCandidates = people
+      .filter((p) => plan[iso][p.id] === "REMOTE") // available (not OOO, not BubbleLux)
+      .map((p) => ({
+        person: p,
+        priority: calculateGCPriority(p, actualDays[p.id], targetDays[p.id])
+      }))
+      .sort((a, b) => b.priority - a.priority);
 
-   // for (const candidate of gcCandidates) {
-     // if (dayUsage(iso).GC >= SITES.GC.capacity) break;
-     // if (candidate.priority > 0) {
-      //  plan[iso][candidate.person.id] = "GC";
-       // actualDays[candidate.person.id].gc += 1;
-   //   }
-    // }
+    for (const candidate of gcCandidates) {
+      if (dayUsage(iso).GC >= SITES.GC.capacity) break;
+      if (candidate.priority > 0) {
+        plan[iso][candidate.person.id] = "GC";
+        actualDays[candidate.person.id].gc += 1;
+      }
+    }
 
     // 1.5) Ensure GC has at least 3 people if anyone is there
     const currentGCCount = dayUsage(iso).GC;
