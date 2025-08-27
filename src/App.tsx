@@ -52,7 +52,7 @@ const isBusinessDay = (d) => !isWeekend(d);
 // Moved to useScheduleData hook
 
 // --- Heuristic generator ----------------------------------------------------
-function generateSchedule({ monthStart, bubbleLuxDates, oooData, people = PEOPLE }) {
+function generateSchedule({ monthStart, bubbleLuxDates = [], oooData, people = PEOPLE }) {
   const monthDays = eachDayOfInterval({ start: startOfMonth(monthStart), end: endOfMonth(monthStart) })
     .filter(isBusinessDay);
 
@@ -248,13 +248,14 @@ export default function App() {
     [monthStart]
   );
   const dayISOs = businessDays.map(yyyyMMdd);
+  const currentMonthBubbleLux = state.bubbleLux[state.monthISO] || [];
 
   const usageByDay = useMemo(() => computeUsage(state.plan, dayISOs), [state.plan, state.monthISO]);
 
   function handleGenerate() {
     const { plan, days } = generateSchedule({ 
       monthStart, 
-      bubbleLuxDates: state.bubbleLux, 
+      bubbleLuxDates: currentMonthBubbleLux, 
       oooData: state.oooData || {},
       people: PEOPLE 
     });
@@ -264,9 +265,18 @@ export default function App() {
 
   function setBubbleLux(iso) {
     setState((s) => {
-      const exists = s.bubbleLux.includes(iso);
-      const next = exists ? s.bubbleLux.filter((x) => x !== iso) : [...s.bubbleLux, iso].slice(0, 2);
-      return { ...s, bubbleLux: next };
+      const monthBubbleLux = s.bubbleLux[s.monthISO] || [];
+      const exists = monthBubbleLux.includes(iso);
+      const next = exists 
+        ? monthBubbleLux.filter((x) => x !== iso) 
+        : [...monthBubbleLux, iso].slice(0, 2);
+      return { 
+        ...s, 
+        bubbleLux: { 
+          ...s.bubbleLux, 
+          [s.monthISO]: next 
+        } 
+      };
     });
   }
 
@@ -295,7 +305,7 @@ export default function App() {
 
   function resetPlan() {
     if (confirm('Are you sure you want to reset the entire monthly plan? This action cannot be undone.')) {
-      setState((s) => ({ ...s, plan: {}, bubbleLux: [], oooData: {} }));
+      setState((s) => ({ ...s, plan: {}, bubbleLux: {}, oooData: {} }));
       setHasGenerated(false);
     }
   }
@@ -394,7 +404,7 @@ export default function App() {
             <div className="grid grid-cols-5 gap-2">
               {businessDays.map((d) => {
                 const iso = yyyyMMdd(d);
-                const selected = state.bubbleLux.includes(iso);
+                const selected = currentMonthBubbleLux.includes(iso);
                 return (
                   <button
                     key={iso}
@@ -498,22 +508,49 @@ export default function App() {
         <section className="mb-10">
           <h2 className="font-semibold mb-2">People & constraints (read-only in this demo)</h2>
           <div className="bg-white border rounded-lg p-3 overflow-auto">
-            <table className="min-w-full text-sm">
-              <thead>
-                <tr className="text-left border-b">
-                  <th className="py-1 pr-3">Person</th>
-                  <th className="py-1 pr-3">Key constraints</th>
-                </tr>
-              </thead>
-              <tbody>
-                {PEOPLE.map((p) => (
-                  <tr key={p.id} className="border-b last:border-0">
-                    <td className="py-1 pr-3 font-medium">{p.name}</td>
-                    <td className="py-1 pr-3 text-neutral-700">{describePrefs(p.prefs)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <div className="space-y-4">
+              {PEOPLE.map((p) => (
+                <div key={p.id} className="border-b last:border-0 pb-4 last:pb-0">
+                  <div className="font-medium mb-2">{p.name}</div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <div className="w-16 text-xs text-neutral-600">🦌 GC</div>
+                    <div className="flex-1 bg-neutral-200 rounded-full h-4 relative">
+                      <div 
+                        className="bg-neutral-400 h-4 rounded-full" 
+                        style={{ width: `${p.prefs.gcShare}%` }}
+                      ></div>
+                      <div className="absolute inset-0 flex items-center justify-center text-xs font-medium text-white">
+                        {p.prefs.gcShare}%
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <div className="w-16 text-xs text-neutral-600">🏢 Issy</div>
+                    <div className="flex-1 bg-neutral-200 rounded-full h-4 relative">
+                      <div 
+                        className="bg-neutral-500 h-4 rounded-full" 
+                        style={{ width: `${p.prefs.issyShare}%` }}
+                      ></div>
+                      <div className="absolute inset-0 flex items-center justify-center text-xs font-medium text-white">
+                        {p.prefs.issyShare}%
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-16 text-xs text-neutral-600">🏠 Remote</div>
+                    <div className="flex-1 bg-neutral-200 rounded-full h-4 relative">
+                      <div 
+                        className="bg-neutral-600 h-4 rounded-full" 
+                        style={{ width: `${p.prefs.remoteShare}%` }}
+                      ></div>
+                      <div className="absolute inset-0 flex items-center justify-center text-xs font-medium text-white">
+                        {p.prefs.remoteShare}%
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         </section>
       </main>
@@ -643,10 +680,11 @@ function generateCSV(state, businessDays, people) {
   });
   
   // Add BubbleLux info
-  if (state.bubbleLux.length > 0) {
+  const monthBubbleLux = state.bubbleLux[state.monthISO] || [];
+  if (monthBubbleLux.length > 0) {
     lines.push('');
     lines.push('BubbleLux Days:');
-    state.bubbleLux.forEach(iso => {
+    monthBubbleLux.forEach(iso => {
       const date = new Date(iso + 'T00:00:00');
       lines.push(format(date, 'EEEE d MMMM yyyy'));
     });
@@ -660,7 +698,7 @@ function parseCSV(csvText, businessDays, people) {
   if (lines.length < 2) throw new Error('Invalid CSV format');
   
   const plan = {};
-  const bubbleLux = [];
+  const bubbleLux = {};
   
   // Skip header line
   for (let i = 1; i < lines.length; i++) {

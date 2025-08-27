@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 
 interface ScheduleState {
   monthISO: string;
-  bubbleLux: string[];
+  bubbleLux: Record<string, string[]>; // monthISO -> dates[]
   oooData: Record<string, string[]>;
   plan: Record<string, Record<string, string>>;
   days: string[];
@@ -21,7 +21,7 @@ export function useScheduleData() {
         const parsed = JSON.parse(stored);
         return {
           monthISO,
-          bubbleLux: parsed.bubbleLux || [],
+          bubbleLux: parsed.bubbleLux || {},
           oooData: parsed.oooData || {},
           plan: parsed.plan || {},
           days: parsed.days || [],
@@ -33,7 +33,7 @@ export function useScheduleData() {
     
     return {
       monthISO,
-      bubbleLux: [],
+      bubbleLux: {},
       oooData: {},
       plan: {},
       days: [],
