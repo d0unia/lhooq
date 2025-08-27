@@ -512,40 +512,30 @@ export default function App() {
               {PEOPLE.map((p) => (
                 <div key={p.id} className="border-b last:border-0 pb-4 last:pb-0">
                   <div className="font-medium mb-2">{p.name}</div>
-                  <div className="flex items-center gap-2 mb-1">
-                    <div className="w-16 text-xs text-neutral-600">🦌 GC</div>
-                    <div className="flex-1 bg-neutral-200 rounded-full h-4 relative">
-                      <div 
-                        className="bg-neutral-400 h-4 rounded-full" 
-                        style={{ width: `${p.prefs.gcShare}%` }}
-                      ></div>
-                      <div className="absolute inset-0 flex items-center justify-center text-xs font-medium text-white">
-                        {p.prefs.gcShare}%
-                      </div>
+                  <div className="flex h-6 rounded-full overflow-hidden bg-neutral-200">
+                    <div 
+                      className="bg-neutral-400 flex items-center justify-center text-xs font-medium text-white"
+                      style={{ width: `${p.prefs.gcShare}%` }}
+                      title={`🦌 GC: ${p.prefs.gcShare}%`}
+                    >
+                      {p.prefs.gcShare > 15 && '🦌'}
+                      {p.prefs.gcShare > 25 && ` ${p.prefs.gcShare}%`}
                     </div>
-                  </div>
-                  <div className="flex items-center gap-2 mb-1">
-                    <div className="w-16 text-xs text-neutral-600">🏢 Issy</div>
-                    <div className="flex-1 bg-neutral-200 rounded-full h-4 relative">
-                      <div 
-                        className="bg-neutral-500 h-4 rounded-full" 
-                        style={{ width: `${p.prefs.issyShare}%` }}
-                      ></div>
-                      <div className="absolute inset-0 flex items-center justify-center text-xs font-medium text-white">
-                        {p.prefs.issyShare}%
-                      </div>
+                    <div 
+                      className="bg-neutral-500 flex items-center justify-center text-xs font-medium text-white"
+                      style={{ width: `${p.prefs.issyShare}%` }}
+                      title={`🏢 Issy: ${p.prefs.issyShare}%`}
+                    >
+                      {p.prefs.issyShare > 15 && '🏢'}
+                      {p.prefs.issyShare > 25 && ` ${p.prefs.issyShare}%`}
                     </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-16 text-xs text-neutral-600">🏠 Remote</div>
-                    <div className="flex-1 bg-neutral-200 rounded-full h-4 relative">
-                      <div 
-                        className="bg-neutral-600 h-4 rounded-full" 
-                        style={{ width: `${p.prefs.remoteShare}%` }}
-                      ></div>
-                      <div className="absolute inset-0 flex items-center justify-center text-xs font-medium text-white">
-                        {p.prefs.remoteShare}%
-                      </div>
+                    <div 
+                      className="bg-neutral-600 flex items-center justify-center text-xs font-medium text-white"
+                      style={{ width: `${p.prefs.remoteShare}%` }}
+                      title={`🏠 Remote: ${p.prefs.remoteShare}%`}
+                    >
+                      {p.prefs.remoteShare > 15 && '🏠'}
+                      {p.prefs.remoteShare > 25 && ` ${p.prefs.remoteShare}%`}
                     </div>
                   </div>
                 </div>
