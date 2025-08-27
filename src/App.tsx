@@ -400,32 +400,45 @@ export default function App() {
 
         <section className="mb-6">
           <h2 className="font-semibold mb-2">Step 2 — Mark out-of-office days (holidays, field work, etc.)</h2>
-          <div className="bg-white border rounded-lg p-4">
-            {PEOPLE.map((person) => (
-              <div key={person.id} className="mb-4 last:mb-0">
-                <div className="font-medium mb-2">{person.name}</div>
-                <div className="flex flex-wrap gap-1">
-                  {businessDays.map((d) => {
-                    const iso = yyyyMMdd(d);
-                    const isOOO = state.oooData?.[person.id]?.includes(iso);
-                    return (
-                      <button
-                        key={iso}
-                        onClick={() => toggleOOO(person.id, iso)}
-                        className={`text-xs px-2 py-1 rounded border ${
-                          isOOO 
-                            ? "bg-red-100 border-red-300 text-red-700" 
-                            : "bg-gray-50 border-gray-200 hover:bg-gray-100"
-                        }`}
-                        title={format(d, "EEEE d MMMM")}
-                      >
-                        {format(d, "EEE d")}
-                      </button>
-                    );
-                  })}
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {PEOPLE.map((person) => {
+              const weeks = chunkByWeeks(businessDays);
+              return (
+                <div key={person.id} className="bg-white border rounded-lg p-4">
+                  <div className="font-medium mb-3 text-center">{person.name}</div>
+                  <div className="space-y-3">
+                    {weeks.map((week, weekIndex) => (
+                      <div key={weekIndex} className="space-y-1">
+                        <div className="text-xs text-neutral-500 font-medium">
+                          Week {weekIndex + 1}
+                        </div>
+                        <div className="grid grid-cols-5 gap-1">
+                          {week.map((d) => {
+                            const iso = yyyyMMdd(d);
+                            const isOOO = state.oooData?.[person.id]?.includes(iso);
+                            return (
+                              <button
+                                key={iso}
+                                onClick={() => toggleOOO(person.id, iso)}
+                                className={`text-xs px-1 py-2 rounded border text-center ${
+                                  isOOO 
+                                    ? "bg-red-100 border-red-300 text-red-700" 
+                                    : "bg-gray-50 border-gray-200 hover:bg-gray-100"
+                                }`}
+                                title={format(d, "EEEE d MMMM")}
+                              >
+                                <div className="font-medium">{format(d, "EEE")}</div>
+                                <div>{format(d, "d")}</div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </section>
 
