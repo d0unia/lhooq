@@ -457,7 +457,7 @@ function computeUsage(plan, dayISOs) {
   const usage = {};
   for (const iso of dayISOs) {
     const row = plan[iso] || {};
-    usage[iso] = { GC: 0, ISSY: 0, REMOTE: 0 };
+    usage[iso] = { GC: 0, ISSY: 0, REMOTE: 0, OOO: 0 };
     for (const site of Object.values(row)) {
       usage[iso][site] = (usage[iso][site] || 0) + 1;
     }
@@ -465,22 +465,6 @@ function computeUsage(plan, dayISOs) {
   return usage;
 }
 
-function describePrefs(p) {
-  const bits = [];
-  if (p.mustNotRemote) bits.push("no remote");
-  if (p.forbidIssy) bits.push("never Issy");
-  if (p.remoteLow) bits.push("minimize remote");
-  if (p.minIssyPerMonth) bits.push(`≥${p.minIssyPerMonth}/mo Issy`);
-  if (p.minOnsitePerMonth) bits.push(`≥${p.minOnsitePerMonth}/mo onsite`);
-  if (p.minGCPW) bits.push(`≥${p.minGCPW}/wk GC`);
-  if (p.maxGCPW) bits.push(`≤${p.maxGCPW}/wk GC`);
-  if (p.issyConvenient) bits.push("prefers Issy");
-  if (p.gcWeight) bits.push("GC priority");
-  if (p.onsiteDaysPW) bits.push(`${p.onsiteDaysPW}/wk onsite`);
-  if (p.flexible) bits.push("flexible");
-  if (p.wantsSomeGC) bits.push("some GC");
-  return bits.join(" · ");
-}
 
 function generateCSV(state, businessDays, people) {
   const lines = [];
