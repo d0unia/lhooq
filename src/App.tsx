@@ -466,9 +466,6 @@ export default function App() {
 
         <section className="mb-6">
           <h2 className="font-semibold mb-2">Step 3 — Generated plan (click any chip to change)</h2>
-          </div>
-        </section>
-
           <div className="text-sm text-neutral-600 mb-2">GC capacity 5 (min 3 if occupied) · Issy capacity 12 · Remote unlimited</div>
           <div className="space-y-4">
             {businessDays.map((d) => {
