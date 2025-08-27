@@ -242,6 +242,7 @@ export default function App() {
   const [step1Collapsed, setStep1Collapsed] = useState(false);
   const [step2Collapsed, setStep2Collapsed] = useState(false);
   const [step3Collapsed, setStep3Collapsed] = useState(true);
+  const [step4Collapsed, setStep4Collapsed] = useState(true);
 
   const monthStart = useMemo(() => new Date(state.monthISO + "T00:00:00"), [state.monthISO]);
   const businessDays = useMemo(
@@ -514,9 +515,98 @@ export default function App() {
             <span className={`transform transition-transform ${step3Collapsed ? 'rotate-0' : 'rotate-90'}`}>
               ▶
             </span>
-            People & constraints
+            Active location rules
           </button>
           {!step3Collapsed && (
+            <div className="bg-white border rounded-lg p-4">
+              <div className="grid md:grid-cols-2 gap-6">
+                <div>
+                  <h4 className="font-medium mb-3 text-neutral-800">🦌 Grand-Cerf Rules</h4>
+                  <ul className="space-y-2 text-sm text-neutral-600">
+                    <li className="flex items-start gap-2">
+                      <span className="text-emerald-600 font-medium">•</span>
+                      Maximum capacity: 5 people
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-emerald-600 font-medium">•</span>
+                      Minimum 3 people when occupied (no one works alone)
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-emerald-600 font-medium">•</span>
+                      Priority allocation based on individual preferences
+                    </li>
+                  </ul>
+                </div>
+                
+                <div>
+                  <h4 className="font-medium mb-3 text-neutral-800">🏢 Issy Rules</h4>
+                  <ul className="space-y-2 text-sm text-neutral-600">
+                    <li className="flex items-start gap-2">
+                      <span className="text-blue-600 font-medium">•</span>
+                      Maximum capacity: 12 people
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-blue-600 font-medium">•</span>
+                      No one works alone (minimum 2 people)
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-blue-600 font-medium">•</span>
+                      BubbleLux days: everyone at Issy (up to 2 per month)
+                    </li>
+                  </ul>
+                </div>
+                
+                <div>
+                  <h4 className="font-medium mb-3 text-neutral-800">🏠 Remote Rules</h4>
+                  <ul className="space-y-2 text-sm text-neutral-600">
+                    <li className="flex items-start gap-2">
+                      <span className="text-purple-600 font-medium">•</span>
+                      Unlimited capacity
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-purple-600 font-medium">•</span>
+                      Default fallback when office capacity is full
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-purple-600 font-medium">•</span>
+                      Respects individual remote work preferences
+                    </li>
+                  </ul>
+                </div>
+                
+                <div>
+                  <h4 className="font-medium mb-3 text-neutral-800">📋 General Rules</h4>
+                  <ul className="space-y-2 text-sm text-neutral-600">
+                    <li className="flex items-start gap-2">
+                      <span className="text-neutral-600 font-medium">•</span>
+                      Out-of-office days override all location assignments
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-neutral-600 font-medium">•</span>
+                      Schedule respects individual percentage preferences
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-neutral-600 font-medium">•</span>
+                      Business days only (Monday to Friday)
+                    </li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          )}
+        </section>
+
+        <section className="mb-10">
+          <button
+            onClick={() => setStep4Collapsed(!step4Collapsed)}
+            className="flex items-center gap-2 font-semibold mb-2 hover:text-neutral-700"
+          >
+            <span className={`transform transition-transform ${step4Collapsed ? 'rotate-0' : 'rotate-90'}`}>
+              ▶
+            </span>
+            People & constraints
+          </button>
+          {!step4Collapsed && (
             <div className="bg-white border rounded-lg p-3 overflow-auto">
               <div className="space-y-4">
                 {PEOPLE.map((p) => (
