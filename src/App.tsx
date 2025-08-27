@@ -24,17 +24,17 @@ import LoginPage from "./components/LoginPage";
 // --- Data model -------------------------------------------------------------
 const PEOPLE = [
   { id: "bertrand", name: "Bertrand", prefs: { gcShare: 70, issyShare: 10, remoteShare: 20 } },
-  { id: "florence", name: "Florence", prefs: { gcShare: 55, issyShare: 5, remoteShare: 40 } },
-  { id: "nicolas", name: "Nicolas", prefs: { gcShare: 50, issyShare: 10, remoteShare: 40 } },
+  { id: "florence", name: "Florence", prefs: { gcShare: 60, issyShare: 10, remoteShare: 30 } },
+  { id: "nicolas", name: "Nicolas", prefs: { gcShare: 55, issyShare: 15, remoteShare: 30 } },
   { id: "amelie", name: "Amélie", prefs: { gcShare: 5, issyShare: 5, remoteShare: 90 } },
   { id: "karine", name: "Karine", prefs: { gcShare: 90, issyShare: 5, remoteShare: 5 } },
-  { id: "lea", name: "Léa", prefs: { gcShare: 50, issyShare: 10, remoteShare: 40 } },
-  { id: "dounia", name: "Dounia", prefs: { gcShare: 50, issyShare: 10, remoteShare: 40 } },
+  { id: "lea", name: "Léa", prefs: { gcShare: 55, issyShare: 15, remoteShare: 30 } },
+  { id: "dounia", name: "Dounia", prefs: { gcShare: 55, issyShare: 15, remoteShare: 30 } },
   { id: "laurent", name: "Laurent", prefs: { gcShare: 45, issyShare: 45, remoteShare: 10 } },
-  { id: "eva", name: "Eva", prefs: { gcShare: 10, issyShare: 10, remoteShare: 80 } },
-  { id: "herve", name: "Hervé", prefs: { gcShare: 30, issyShare: 30, remoteShare: 40 } },
-  { id: "mathilde", name: "Mathilde", prefs: { gcShare: 30, issyShare: 30, remoteShare: 40 } },
-  { id: "rubie", name: "Rubie", prefs: { gcShare: 50, issyShare: 10, remoteShare: 40 } },
+  { id: "eva", name: "Eva", prefs: { gcShare: 20, issyShare: 20, remoteShare: 60 } },
+  { id: "herve", name: "Hervé", prefs: { gcShare: 35, issyShare: 35, remoteShare: 30 } },
+  { id: "mathilde", name: "Mathilde", prefs: { gcShare: 35, issyShare: 35, remoteShare: 30 } },
+  { id: "rubie", name: "Rubie", prefs: { gcShare: 55, issyShare: 15, remoteShare: 30 } },
 ];
 
 const SITES = {
