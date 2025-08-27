@@ -436,7 +436,20 @@ function computeUsage(plan, dayISOs) {
 }
 
 function describePrefs(p) {
-  return `GC: ${p.gcShare}% · Issy: ${p.issyShare}% · Remote: ${p.remoteShare}%`;
+  const bits = [];
+  if (p.mustNotRemote) bits.push("no remote");
+  if (p.forbidIssy) bits.push("never Issy");
+  if (p.remoteLow) bits.push("minimize remote");
+  if (p.minIssyPerMonth) bits.push(`≥${p.minIssyPerMonth}/mo Issy`);
+  if (p.minOnsitePerMonth) bits.push(`≥${p.minOnsitePerMonth}/mo onsite`);
+  if (p.minGCPW) bits.push(`≥${p.minGCPW}/wk GC`);
+  if (p.maxGCPW) bits.push(`≤${p.maxGCPW}/wk GC`);
+  if (p.issyConvenient) bits.push("prefers Issy");
+  if (p.gcWeight) bits.push("GC priority");
+  if (p.onsiteDaysPW) bits.push(`${p.onsiteDaysPW}/wk onsite`);
+  if (p.flexible) bits.push("flexible");
+  if (p.wantsSomeGC) bits.push("some GC");
+  return bits.join(" · ");
 }
 
 function generateCSV(state, businessDays, people) {
