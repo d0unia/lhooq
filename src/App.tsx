@@ -41,6 +41,7 @@ const SITES = {
   GC: { id: "GC", name: "Grand‑Cerf", capacity: 5 },
   ISSY: { id: "ISSY", name: "Issy", capacity: 12 },
   REMOTE: { id: "REMOTE", name: "Remote", capacity: Infinity },
+  OOO: { id: "OOO", name: "Out of Office", capacity: Infinity },
 };
 
 // Helpers
@@ -51,7 +52,7 @@ const isBusinessDay = (d) => !isWeekend(d);
 // Moved to useScheduleData hook
 
 // --- Heuristic generator ----------------------------------------------------
-function generateSchedule({ monthStart, bubbleLuxDates, people = PEOPLE }) {
+function generateSchedule({ monthStart, bubbleLuxDates, oooData, people = PEOPLE }) {
   const monthDays = eachDayOfInterval({ start: startOfMonth(monthStart), end: endOfMonth(monthStart) })
     .filter(isBusinessDay);
 
@@ -62,20 +63,37 @@ function generateSchedule({ monthStart, bubbleLuxDates, people = PEOPLE }) {
     plan[key] = Object.fromEntries(people.map((p) => [p.id, "REMOTE"]));
   });
 
+  // Apply OOO first
+  Object.entries(oooData).forEach(([personId, dates]) => {
+    dates.forEach((iso) => {
+      if (plan[iso]) {
+        plan[iso][personId] = "OOO";
+      }
+    });
+  });
 
   // Apply BubbleLux (all at Issy)
   bubbleLuxDates.forEach((iso) => {
     if (!plan[iso]) return;
-    people.forEach((p) => (plan[iso][p.id] = "ISSY"));
+    people.forEach((p) => {
+      if (plan[iso][p.id] !== "OOO") {
+        plan[iso][p.id] = "ISSY";
+      }
+    });
   });
 
   // Calculate target days for each person based on percentage preferences
-  const totalWorkDays = monthDays.length;
+  // Only count available days (not OOO) for each person
   const targetDays = {};
   people.forEach((p) => {
-    const gcTarget = Math.round((p.prefs.gcShare / 100) * totalWorkDays);
-    const issyTarget = Math.round((p.prefs.issyShare / 100) * totalWorkDays);
-    const remoteTarget = totalWorkDays - gcTarget - issyTarget;
+    const availableDays = monthDays.filter(d => {
+      const iso = yyyyMMdd(d);
+      return !oooData[p.id]?.includes(iso);
+    }).length;
+    
+    const gcTarget = Math.round((p.prefs.gcShare / 100) * availableDays);
+    const issyTarget = Math.round((p.prefs.issyShare / 100) * availableDays);
+    const remoteTarget = availableDays - gcTarget - issyTarget;
     targetDays[p.id] = { gc: gcTarget, issy: issyTarget, remote: remoteTarget };
   });
 
@@ -84,7 +102,8 @@ function generateSchedule({ monthStart, bubbleLuxDates, people = PEOPLE }) {
   people.forEach((p) => {
     actualDays[p.id] = { gc: 0, issy: 0, remote: 0 };
     // Count BubbleLux days as Issy
-    actualDays[p.id].issy = bubbleLuxDates.length;
+    const bubbleLuxCount = bubbleLuxDates.filter(iso => !oooData[p.id]?.includes(iso)).length;
+    actualDays[p.id].issy = bubbleLuxCount;
   });
 
   // Helper to count site usage for a day
@@ -95,7 +114,7 @@ function generateSchedule({ monthStart, bubbleLuxDates, people = PEOPLE }) {
         acc[site] = (acc[site] || 0) + 1;
         return acc;
       },
-      { GC: 0, ISSY: 0, REMOTE: 0 }
+      { GC: 0, ISSY: 0, REMOTE: 0, OOO: 0 }
     );
   };
 
@@ -106,7 +125,7 @@ function generateSchedule({ monthStart, bubbleLuxDates, people = PEOPLE }) {
 
     // 1) Fill GC first (priority location)
     const gcCandidates = people
-      .filter((p) => plan[iso][p.id] === "REMOTE") // not already assigned
+      .filter((p) => plan[iso][p.id] === "REMOTE") // available (not OOO, not BubbleLux)
       .map((p) => ({
         person: p,
         priority: calculateGCPriority(p, actualDays[p.id], targetDays[p.id])
@@ -118,6 +137,22 @@ function generateSchedule({ monthStart, bubbleLuxDates, people = PEOPLE }) {
       if (candidate.priority > 0) {
         plan[iso][candidate.person.id] = "GC";
         actualDays[candidate.person.id].gc += 1;
+      }
+    }
+
+    // 1.5) Ensure GC has at least 3 people if anyone is there
+    const currentGCCount = dayUsage(iso).GC;
+    if (currentGCCount > 0 && currentGCCount < 3) {
+      const additionalNeeded = 3 - currentGCCount;
+      const availableForGC = people
+        .filter((p) => plan[iso][p.id] === "REMOTE")
+        .sort((a, b) => calculateGCPriority(b, actualDays[b.id], targetDays[b.id]) - 
+                       calculateGCPriority(a, actualDays[a.id], targetDays[a.id]));
+      
+      for (let i = 0; i < Math.min(additionalNeeded, availableForGC.length); i++) {
+        const person = availableForGC[i];
+        plan[iso][person.id] = "GC";
+        actualDays[person.id].gc += 1;
       }
     }
 
@@ -215,7 +250,12 @@ export default function App() {
   const usageByDay = useMemo(() => computeUsage(state.plan, dayISOs), [state.plan, state.monthISO]);
 
   function handleGenerate() {
-    const { plan, days } = generateSchedule({ monthStart, bubbleLuxDates: state.bubbleLux, people: PEOPLE });
+    const { plan, days } = generateSchedule({ 
+      monthStart, 
+      bubbleLuxDates: state.bubbleLux, 
+      oooData: state.oooData || {},
+      people: PEOPLE 
+    });
     setState((s) => ({ ...s, plan, days }));
     setHasGenerated(true);
   }
@@ -228,6 +268,22 @@ export default function App() {
     });
   }
 
+  function toggleOOO(personId, iso) {
+    setState((s) => {
+      const oooData = { ...s.oooData };
+      if (!oooData[personId]) oooData[personId] = [];
+      
+      const exists = oooData[personId].includes(iso);
+      if (exists) {
+        oooData[personId] = oooData[personId].filter(d => d !== iso);
+      } else {
+        oooData[personId] = [...oooData[personId], iso];
+      }
+      
+      return { ...s, oooData };
+    });
+  }
+
   function setCell(iso, personId, siteId) {
     setState((s) => {
       const plan = { ...s.plan, [iso]: { ...(s.plan[iso] || {}), [personId]: siteId } };
@@ -237,7 +293,7 @@ export default function App() {
 
   function resetPlan() {
     if (confirm('Are you sure you want to reset the entire monthly plan? This action cannot be undone.')) {
-      setState((s) => ({ ...s, plan: {}, bubbleLux: [] }));
+      setState((s) => ({ ...s, plan: {}, bubbleLux: [], oooData: {} }));
       setHasGenerated(false);
     }
   }
@@ -343,12 +399,43 @@ export default function App() {
         </section>
 
         <section className="mb-6">
-          <h2 className="font-semibold mb-2">Step 2 — Generated plan (click any chip to change)</h2>
-          <div className="text-sm text-neutral-600 mb-2">GC capacity 5 · Issy capacity 12 · Remote unlimited</div>
+          <h2 className="font-semibold mb-2">Step 2 — Mark out-of-office days (holidays, field work, etc.)</h2>
+          <div className="bg-white border rounded-lg p-4">
+            {PEOPLE.map((person) => (
+              <div key={person.id} className="mb-4 last:mb-0">
+                <div className="font-medium mb-2">{person.name}</div>
+                <div className="flex flex-wrap gap-1">
+                  {businessDays.map((d) => {
+                    const iso = yyyyMMdd(d);
+                    const isOOO = state.oooData?.[person.id]?.includes(iso);
+                    return (
+                      <button
+                        key={iso}
+                        onClick={() => toggleOOO(person.id, iso)}
+                        className={`text-xs px-2 py-1 rounded border ${
+                          isOOO 
+                            ? "bg-red-100 border-red-300 text-red-700" 
+                            : "bg-gray-50 border-gray-200 hover:bg-gray-100"
+                        }`}
+                        title={format(d, "EEEE d MMMM")}
+                      >
+                        {format(d, "d")}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="mb-6">
+          <h2 className="font-semibold mb-2">Step 3 — Generated plan (click any chip to change)</h2>
+          <div className="text-sm text-neutral-600 mb-2">GC capacity 5 (min 3 if occupied) · Issy capacity 12 · Remote unlimited</div>
           <div className="space-y-4">
             {businessDays.map((d) => {
               const iso = yyyyMMdd(d);
-              const usage = usageByDay[iso] || { GC: 0, ISSY: 0, REMOTE: 0 };
+              const usage = usageByDay[iso] || { GC: 0, ISSY: 0, REMOTE: 0, OOO: 0 };
               const row = state.plan[iso] || {};
               return (
                 <div key={iso} className="bg-white border rounded-lg p-3">
@@ -358,12 +445,14 @@ export default function App() {
                       <Capacity label="GC" used={usage.GC} cap={SITES.GC.capacity} />
                       <Capacity label="Issy" used={usage.ISSY} cap={SITES.ISSY.capacity} />
                       <Capacity label="Remote" used={usage.REMOTE} cap={Infinity} />
+                      <Capacity label="OOO" used={usage.OOO} cap={Infinity} />
                     </div>
                   </div>
-                  <div className="mt-3 grid md:grid-cols-3 gap-3">
+                  <div className="mt-3 grid md:grid-cols-4 gap-3">
                     <SiteColumn title="Grand‑Cerf" siteId="GC" iso={iso} row={row} onSet={setCell} />
                     <SiteColumn title="Issy" siteId="ISSY" iso={iso} row={row} onSet={setCell} />
                     <SiteColumn title="Remote" siteId="REMOTE" iso={iso} row={row} onSet={setCell} />
+                    <SiteColumn title="Out of Office" siteId="OOO" iso={iso} row={row} onSet={setCell} />
                   </div>
                 </div>
               );
@@ -414,34 +503,61 @@ function SiteColumn({ title, siteId, iso, row, onSet }) {
   
   // Only exclude people who are already assigned on this specific day
   const assignedOnThisDay = new Set(Object.keys(row));
-  const availableForQuickAdd = PEOPLE.filter((p) => !assignedOnThisDay.has(p.id));
+  const availableForQuickAdd = PEOPLE.filter((p) => {
+    const currentAssignment = row[p.id];
+    return currentAssignment !== siteId; // Can add if not already in this location
+  });
   
   return (
     <div className="border rounded p-2">
       <div className="text-sm font-medium mb-2">{title}</div>
       <div className="flex flex-wrap gap-2">
         {occupants.map((p) => (
-          <Chip key={p.id} color="filled" onClick={() => onSet(iso, p.id, nextSite(siteId))}>{p.name}</Chip>
+          <Chip 
+            key={p.id} 
+            onClick={() => onSet(iso, p.id, nextSite(siteId))}
+            isOOO={row[p.id] === "OOO"}
+          >
+            {p.name}
+          </Chip>
         ))}
       </div>
-      <div className="mt-2 text-xs text-neutral-500">Click a name to cycle GC → Issy → Remote</div>
-      <div className="mt-2">
+      <div className="mt-2 text-xs text-neutral-500">Click a name to cycle GC → Issy → Remote → OOO</div>
+      {siteId !== "OOO" && (
+        <div className="mt-2">
         <div className="text-xs text-neutral-500 mb-1">Quick add</div>
         <div className="flex flex-wrap gap-1">
           {availableForQuickAdd.map((p) => (
-            <button key={p.id} className="text-xs underline text-neutral-600" onClick={() => onSet(iso, p.id, siteId)}>
+            <button 
+              key={p.id} 
+              className={`text-xs underline ${
+                row[p.id] === "OOO" 
+                  ? "text-neutral-400 line-through cursor-not-allowed" 
+                  : "text-neutral-600 hover:text-neutral-800"
+              }`}
+              onClick={() => row[p.id] !== "OOO" && onSet(iso, p.id, siteId)}
+              disabled={row[p.id] === "OOO"}
+            >
               {p.name}
             </button>
           ))}
         </div>
       </div>
+      )}
     </div>
   );
 }
 
-function Chip({ children, onClick }) {
+function Chip({ children, onClick, isOOO = false }) {
   return (
-    <button onClick={onClick} className="px-2 py-1 rounded-full bg-neutral-900 text-white text-xs hover:opacity-90">
+    <button 
+      onClick={onClick} 
+      className={`px-2 py-1 rounded-full text-xs hover:opacity-90 ${
+        isOOO 
+          ? "bg-red-100 text-red-700 border border-red-300" 
+          : "bg-neutral-900 text-white"
+      }`}
+    >
       {children}
     </button>
   );
@@ -450,7 +566,8 @@ function Chip({ children, onClick }) {
 function nextSite(curr) {
   if (curr === "GC") return "ISSY";
   if (curr === "ISSY") return "REMOTE";
-  return "GC";
+  if (curr === "REMOTE") return "OOO";
+  return "GC"; // OOO -> GC
 }
 
 function computeUsage(plan, dayISOs) {

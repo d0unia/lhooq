@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 interface ScheduleState {
   monthISO: string;
   bubbleLux: string[];
+  oooData: Record<string, string[]>;
   plan: Record<string, Record<string, string>>;
   days: string[];
 }
@@ -21,6 +22,7 @@ export function useScheduleData() {
         return {
           monthISO,
           bubbleLux: parsed.bubbleLux || [],
+          oooData: parsed.oooData || {},
           plan: parsed.plan || {},
           days: parsed.days || [],
         };
@@ -32,6 +34,7 @@ export function useScheduleData() {
     return {
       monthISO,
       bubbleLux: [],
+      oooData: {},
       plan: {},
       days: [],
     };
