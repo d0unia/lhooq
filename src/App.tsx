@@ -239,6 +239,8 @@ export default function App() {
   const { isAuthenticated, login, logout } = useAuth();
   const { state, setState } = useScheduleData();
   const [hasGenerated, setHasGenerated] = useState(false);
+  const [step1Collapsed, setStep1Collapsed] = useState(false);
+  const [step2Collapsed, setStep2Collapsed] = useState(false);
 
   const monthStart = useMemo(() => new Date(state.monthISO + "T00:00:00"), [state.monthISO]);
   const businessDays = useMemo(
@@ -379,71 +381,94 @@ export default function App() {
 
       <main className="max-w-6xl mx-auto p-4">
         <section className="mb-6">
-          <h2 className="font-semibold mb-2">Step 1 — Pick up to 2 BubbleLux days (everyone at Issy)</h2>
-          <div className="grid grid-cols-5 gap-2">
-            {businessDays.map((d) => {
-              const iso = yyyyMMdd(d);
-              const selected = state.bubbleLux.includes(iso);
-              return (
-                <button
-                  key={iso}
-                  onClick={() => setBubbleLux(iso)}
-                  className={`text-left border rounded p-2 ${selected ? "bg-amber-200 border-amber-400" : "bg-white"}`}
-                >
-                  <div className="text-xs opacity-70">{format(d, "EEE d MMM")}</div>
-                  <div className="font-medium">{selected ? "BubbleLux (Issy)" : "—"}</div>
-                </button>
-              );
-            })}
-          </div>
+          <button
+            onClick={() => setStep1Collapsed(!step1Collapsed)}
+            className="flex items-center gap-2 font-semibold mb-2 hover:text-neutral-700"
+          >
+            <span className={`transform transition-transform ${step1Collapsed ? 'rotate-0' : 'rotate-90'}`}>
+              ▶
+            </span>
+            Step 1 — Pick up to 2 BubbleLux days (everyone at Issy)
+          </button>
+          {!step1Collapsed && (
+            <div className="grid grid-cols-5 gap-2">
+              {businessDays.map((d) => {
+                const iso = yyyyMMdd(d);
+                const selected = state.bubbleLux.includes(iso);
+                return (
+                  <button
+                    key={iso}
+                    onClick={() => setBubbleLux(iso)}
+                    className={`text-left border rounded p-2 ${selected ? "bg-amber-200 border-amber-400" : "bg-white"}`}
+                  >
+                    <div className="text-xs opacity-70">{format(d, "EEE d MMM")}</div>
+                    <div className="font-medium">{selected ? "BubbleLux (Issy)" : "—"}</div>
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </section>
 
         <section className="mb-6">
-          <h2 className="font-semibold mb-2">Step 2 — Mark out-of-office days (holidays, field work, etc.)</h2>
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {PEOPLE.map((person) => {
-              const weeks = chunkByWeeks(businessDays);
-              return (
-                <div key={person.id} className="bg-white border rounded-lg p-4">
-                  <div className="font-medium mb-3 text-center">{person.name}</div>
-                  <div className="space-y-3">
-                    {weeks.map((week, weekIndex) => (
-                      <div key={weekIndex} className="space-y-1">
-                        <div className="text-xs text-neutral-500 font-medium">
-                          Week {weekIndex + 1}
+          <button
+            onClick={() => setStep2Collapsed(!step2Collapsed)}
+            className="flex items-center gap-2 font-semibold mb-2 hover:text-neutral-700"
+          >
+            <span className={`transform transition-transform ${step2Collapsed ? 'rotate-0' : 'rotate-90'}`}>
+              ▶
+            </span>
+            Step 2 — Mark out-of-office days (holidays, field work, etc.)
+          </button>
+          {!step2Collapsed && (
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {PEOPLE.map((person) => {
+                const weeks = chunkByWeeks(businessDays);
+                return (
+                  <div key={person.id} className="bg-white border rounded-lg p-4">
+                    <div className="font-medium mb-3 text-center">{person.name}</div>
+                    <div className="space-y-3">
+                      {weeks.map((week, weekIndex) => (
+                        <div key={weekIndex} className="space-y-1">
+                          <div className="text-xs text-neutral-500 font-medium">
+                            Week {weekIndex + 1}
+                          </div>
+                          <div className="grid grid-cols-5 gap-1">
+                            {week.map((d) => {
+                              const iso = yyyyMMdd(d);
+                              const isOOO = state.oooData?.[person.id]?.includes(iso);
+                              return (
+                                <button
+                                  key={iso}
+                                  onClick={() => toggleOOO(person.id, iso)}
+                                  className={`text-xs px-1 py-2 rounded border text-center ${
+                                    isOOO 
+                                      ? "bg-red-100 border-red-300 text-red-700" 
+                                      : "bg-gray-50 border-gray-200 hover:bg-gray-100"
+                                  }`}
+                                  title={format(d, "EEEE d MMMM")}
+                                >
+                                  <div className="font-medium">{format(d, "EEE")}</div>
+                                  <div>{format(d, "d")}</div>
+                                </button>
+                              );
+                            })}
+                          </div>
                         </div>
-                        <div className="grid grid-cols-5 gap-1">
-                          {week.map((d) => {
-                            const iso = yyyyMMdd(d);
-                            const isOOO = state.oooData?.[person.id]?.includes(iso);
-                            return (
-                              <button
-                                key={iso}
-                                onClick={() => toggleOOO(person.id, iso)}
-                                className={`text-xs px-1 py-2 rounded border text-center ${
-                                  isOOO 
-                                    ? "bg-red-100 border-red-300 text-red-700" 
-                                    : "bg-gray-50 border-gray-200 hover:bg-gray-100"
-                                }`}
-                                title={format(d, "EEEE d MMMM")}
-                              >
-                                <div className="font-medium">{format(d, "EEE")}</div>
-                                <div>{format(d, "d")}</div>
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                   </div>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          )}
         </section>
 
         <section className="mb-6">
           <h2 className="font-semibold mb-2">Step 3 — Generated plan (click any chip to change)</h2>
+          </div>
+        </section>
+
           <div className="text-sm text-neutral-600 mb-2">GC capacity 5 (min 3 if occupied) · Issy capacity 12 · Remote unlimited</div>
           <div className="space-y-4">
             {businessDays.map((d) => {
