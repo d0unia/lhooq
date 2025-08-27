@@ -168,6 +168,36 @@ function calculateRemotePriority(person, actual, target) {
   return deficit * 2 + basePreference;
 }
 
+function gcScore(p, wMap) {
+  const base = p.prefs.gcWeight || 0;
+  const have = (wMap?.[p.id] || 0);
+  const needMin = p.prefs.minGCPW || 0;
+  // Boost if below min; slight decay if already has GC this week
+  const boost = have < needMin ? 3 : Math.max(0, 2 - have);
+  // Penalize if max reached
+  const cap = p.prefs.maxGCPW && have >= p.prefs.maxGCPW ? -99 : 0;
+  // Forbid Issy users w/ remoteLow to try GC earlier (Karine)
+  const special = p.prefs.forbidIssy ? 2 : 0;
+  return base + boost + cap + special;
+}
+
+function chunkByWeeks(days) {
+  // Simple weekly chunks Mon-Fri in order; assumes input are only business days
+  const chunks = [];
+  let curr = [];
+  let lastDow = null;
+  for (const d of days) {
+    const dow = d.getDay(); // 1..5
+    if (lastDow !== null && dow < lastDow) {
+      chunks.push(curr);
+      curr = [];
+    }
+    curr.push(d);
+    lastDow = dow;
+  }
+  if (curr.length) chunks.push(curr);
+  return chunks;
+}
 
 // --- UI components ----------------------------------------------------------
 export default function App() {
