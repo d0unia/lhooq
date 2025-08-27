@@ -23,18 +23,18 @@ import LoginPage from "./components/LoginPage";
 
 // --- Data model -------------------------------------------------------------
 const PEOPLE = [
-  { id: "bertrand", name: "Bertrand", prefs: { gcWeight: 5 } }, // needs GC often
-  { id: "florence", name: "Florence", prefs: { avoidIssy: true, minIssyPerMonth: 2 } },
-  { id: "nicolas", name: "Nicolas", prefs: { mustNotRemote: true, minGCPW: 1, gcWeight: 3 } },
-  { id: "amelie", name: "Amélie", prefs: { minOnsitePerMonth: 2, onsiteCountViaBubbleLuxOK: true, remoteDefault: true } },
-  { id: "karine", name: "Karine", prefs: { forbidIssy: true, remoteLow: true, gcWeight: 5, minGCPW: 2 } },
-  { id: "lea", name: "Léa", prefs: { flexible: true } },
-  { id: "dounia", name: "Dounia", prefs: { flexible: true } },
-  { id: "laurent", name: "Laurent", prefs: { issyConvenient: true, mixWithAll: true } },
-  { id: "eva", name: "Eva", prefs: { maxGCPW: 1, needIssyPW: 1, gcWeight: 1 } },
-  { id: "herve", name: "Hervé", prefs: { onsiteDaysPW: 2, flexible: true } },
-  { id: "mathilde", name: "Mathilde", prefs: { flexible: true } },
-  { id: "rubie", name: "Rubie", prefs: { flexible: true } },
+  { id: "bertrand", name: "Bertrand", prefs: { gcShare: 70, issyShare: 10, remoteShare: 20 } },
+  { id: "florence", name: "Florence", prefs: { gcShare: 55, issyShare: 5, remoteShare: 40 } },
+  { id: "nicolas", name: "Nicolas", prefs: { gcShare: 50, issyShare: 10, remoteShare: 40 } },
+  { id: "amelie", name: "Amélie", prefs: { gcShare: 5, issyShare: 5, remoteShare: 90 } },
+  { id: "karine", name: "Karine", prefs: { gcShare: 90, issyShare: 5, remoteShare: 5 } },
+  { id: "lea", name: "Léa", prefs: { gcShare: 50, issyShare: 10, remoteShare: 40 } },
+  { id: "dounia", name: "Dounia", prefs: { gcShare: 50, issyShare: 10, remoteShare: 40 } },
+  { id: "laurent", name: "Laurent", prefs: { gcShare: 45, issyShare: 45, remoteShare: 10 } },
+  { id: "eva", name: "Eva", prefs: { gcShare: 10, issyShare: 10, remoteShare: 80 } },
+  { id: "herve", name: "Hervé", prefs: { gcShare: 30, issyShare: 30, remoteShare: 40 } },
+  { id: "mathilde", name: "Mathilde", prefs: { gcShare: 30, issyShare: 30, remoteShare: 40 } },
+  { id: "rubie", name: "Rubie", prefs: { gcShare: 50, issyShare: 10, remoteShare: 40 } },
 ];
 
 const SITES = {
@@ -62,7 +62,6 @@ function generateSchedule({ monthStart, bubbleLuxDates, people = PEOPLE }) {
     plan[key] = Object.fromEntries(people.map((p) => [p.id, "REMOTE"]));
   });
 
-  const weeks = chunkByWeeks(monthDays);
 
   // Apply BubbleLux (all at Issy)
   bubbleLuxDates.forEach((iso) => {
@@ -70,19 +69,22 @@ function generateSchedule({ monthStart, bubbleLuxDates, people = PEOPLE }) {
     people.forEach((p) => (plan[iso][p.id] = "ISSY"));
   });
 
-  // Per-person trackers
-  const counters = {
-    gcPerWeek: new Map(), // weekIndex -> {personId: count}
-    issyPerMonth: Object.fromEntries(people.map((p) => [p.id, 0])),
-    onsitePerMonth: Object.fromEntries(people.map((p) => [p.id, 0])),
-  };
+  // Calculate target days for each person based on percentage preferences
+  const totalWorkDays = monthDays.length;
+  const targetDays = {};
+  people.forEach((p) => {
+    const gcTarget = Math.round((p.prefs.gcShare / 100) * totalWorkDays);
+    const issyTarget = Math.round((p.prefs.issyShare / 100) * totalWorkDays);
+    const remoteTarget = totalWorkDays - gcTarget - issyTarget;
+    targetDays[p.id] = { gc: gcTarget, issy: issyTarget, remote: remoteTarget };
+  });
 
-  // Seed month counters from BubbleLux
-  bubbleLuxDates.forEach((iso) => {
-    people.forEach((p) => {
-      counters.issyPerMonth[p.id] += 1;
-      counters.onsitePerMonth[p.id] += 1;
-    });
+  // Track actual assignments
+  const actualDays = {};
+  people.forEach((p) => {
+    actualDays[p.id] = { gc: 0, issy: 0, remote: 0 };
+    // Count BubbleLux days as Issy
+    actualDays[p.id].issy = bubbleLuxDates.length;
   });
 
   // Helper to count site usage for a day
@@ -97,119 +99,74 @@ function generateSchedule({ monthStart, bubbleLuxDates, people = PEOPLE }) {
     );
   };
 
-  // Iterate weeks to assign GC then Issy/Remote
-  weeks.forEach((days, wIdx) => {
-    counters.gcPerWeek.set(wIdx, Object.fromEntries(people.map((p) => [p.id, 0])));
+  // Process each day (excluding BubbleLux days)
+  monthDays.forEach((d) => {
+    const iso = yyyyMMdd(d);
+    if (bubbleLuxDates.includes(iso)) return; // already all Issy
 
-    days.forEach((d) => {
-      const iso = yyyyMMdd(d);
-      if (bubbleLuxDates.includes(iso)) return; // already all Issy
+    // 1) Fill GC first (priority location)
+    const gcCandidates = people
+      .filter((p) => plan[iso][p.id] === "REMOTE") // not already assigned
+      .map((p) => ({
+        person: p,
+        priority: calculateGCPriority(p, actualDays[p.id], targetDays[p.id])
+      }))
+      .sort((a, b) => b.priority - a.priority);
 
-      // 1) Fill GC with priorities
-      const gcPriorities = people
-        .map((p) => ({
-          p,
-          score: gcScore(p, counters.gcPerWeek.get(wIdx), wIdx),
-        }))
-        .sort((a, b) => b.score - a.score)
-        .map((x) => x.p);
-
-      for (const p of gcPriorities) {
-        if (plan[iso][p.id] !== "REMOTE") continue; // already set later
-        if (dayUsage(iso).GC >= SITES.GC.capacity) break;
-        if (p.prefs.forbidIssy && p.prefs.remoteLow) {
-          // GC preferred for Karine when possible
-        }
-        // Weekly GC constraints
-        const gcCnt = counters.gcPerWeek.get(wIdx)[p.id] || 0;
-        if (p.prefs.maxGCPW && gcCnt >= p.prefs.maxGCPW) continue;
-        // Encourage those who need min GC per week
-        if (p.prefs.minGCPW && gcCnt >= p.prefs.minGCPW) continue; // already satisfied this week; let others in
-
-        // Seat at GC if fits soft score
-        if (gcScore(p, counters.gcPerWeek.get(wIdx), wIdx) > 0) {
-          plan[iso][p.id] = "GC";
-          counters.gcPerWeek.get(wIdx)[p.id] = gcCnt + 1;
-          counters.onsitePerMonth[p.id] += 1;
-        }
+    for (const candidate of gcCandidates) {
+      if (dayUsage(iso).GC >= SITES.GC.capacity) break;
+      if (candidate.priority > 0) {
+        plan[iso][candidate.person.id] = "GC";
+        actualDays[candidate.person.id].gc += 1;
       }
+    }
 
-      // 2) Assign remaining: Issy vs Remote
-      for (const p of people) {
-        if (plan[iso][p.id] !== "REMOTE") continue; // already assigned GC or BubbleLux earlier
+    // 2) Assign remaining people to Issy or Remote based on preferences
+    const remainingPeople = people.filter((p) => plan[iso][p.id] === "REMOTE");
+    
+    for (const p of remainingPeople) {
+      const issyPriority = calculateIssyPriority(p, actualDays[p.id], targetDays[p.id]);
+      const remotePriority = calculateRemotePriority(p, actualDays[p.id], targetDays[p.id]);
+      
+      if (issyPriority > remotePriority && dayUsage(iso).ISSY < SITES.ISSY.capacity) {
+        plan[iso][p.id] = "ISSY";
+        actualDays[p.id].issy += 1;
+      } else {
+        plan[iso][p.id] = "REMOTE";
+        actualDays[p.id].remote += 1;
+      }
+    }
 
-        // Hard rules
-        if (p.prefs.mustNotRemote) {
-          plan[iso][p.id] = "ISSY";
-          counters.issyPerMonth[p.id] += 1;
-          counters.onsitePerMonth[p.id] += 1;
-          continue;
-        }
-        if (p.prefs.forbidIssy) {
-          // Can't go Issy; if GC is full, allow Remote (Karine minimal remote handled by gc priority)
-          plan[iso][p.id] = "REMOTE";
-          continue;
-        }
+    // 3) Ensure no one is alone at Issy (move to remote if only 1 person)
+    const issyOccupants = Object.entries(plan[iso]).filter(([, site]) => site === "ISSY");
+    if (issyOccupants.length === 1) {
+      const [lonePersonId] = issyOccupants[0];
+      plan[iso][lonePersonId] = "REMOTE";
+      actualDays[lonePersonId].issy -= 1;
+      actualDays[lonePersonId].remote += 1;
+    }
+  });
 
-        // Weekly patterns
-        if (p.id === "eva") {
-          // 1 Issy + 1 GC per week max (GC handled above). If she doesn't have Issy yet this week, try place her.
-          const wmap = counters.gcPerWeek.get(wIdx);
-          const evaIssyCountThisWeek = days.filter((dd) => plan[yyyyMMdd(dd)][p.id] === "ISSY").length;
-          if (evaIssyCountThisWeek < (p.prefs.needIssyPW || 0) && dayUsage(iso).ISSY < SITES.ISSY.capacity) {
-            plan[iso][p.id] = "ISSY";
-            counters.issyPerMonth[p.id] += 1;
-            counters.onsitePerMonth[p.id] += 1;
-            continue;
-          }
-        }
+  return { plan, days: monthDays.map(yyyyMMdd) };
+}
 
-        // Hervé: 2 on-site per week
-        if (p.id === "herve") {
-          const onsiteThisWeek = days.filter((dd) => plan[yyyyMMdd(dd)][p.id] !== "REMOTE").length;
-          if (onsiteThisWeek < (p.prefs.onsiteDaysPW || 0) && dayUsage(iso).ISSY < SITES.ISSY.capacity) {
-            plan[iso][p.id] = "ISSY";
-            counters.issyPerMonth[p.id] += 1;
-            counters.onsitePerMonth[p.id] += 1;
-            continue;
-          }
-        }
+function calculateGCPriority(person, actual, target) {
+  const deficit = target.gc - actual.gc;
+  const basePreference = person.prefs.gcShare / 100;
+  return deficit * 2 + basePreference;
+}
 
-        // Laurent prefers Issy
-        if (p.prefs.issyConvenient && dayUsage(iso).ISSY < SITES.ISSY.capacity) {
-          plan[iso][p.id] = "ISSY";
-          counters.issyPerMonth[p.id] += 1;
-          counters.onsitePerMonth[p.id] += 1;
-          continue;
-        }
+function calculateIssyPriority(person, actual, target) {
+  const deficit = target.issy - actual.issy;
+  const basePreference = person.prefs.issyShare / 100;
+  return deficit * 2 + basePreference;
+}
 
-        // Florence avoids Issy but needs 2 per month; count BubbleLux toward the 2
-        if (p.id === "florence") {
-          if (counters.issyPerMonth[p.id] < (p.prefs.minIssyPerMonth || 0) && dayUsage(iso).ISSY < SITES.ISSY.capacity) {
-            plan[iso][p.id] = "ISSY";
-            counters.issyPerMonth[p.id] += 1;
-            counters.onsitePerMonth[p.id] += 1;
-          } else {
-            // else prefer GC (handled earlier) or Remote
-            plan[iso][p.id] = plan[iso][p.id] === "REMOTE" ? "REMOTE" : plan[iso][p.id];
-          }
-          continue;
-        }
-
-        // Amélie remote by default; ensure >=2 onsite/month (BubbleLux counts)
-        if (p.id === "amelie") {
-          if (counters.onsitePerMonth[p.id] < (p.prefs.minOnsitePerMonth || 0) && dayUsage(iso).ISSY < SITES.ISSY.capacity) {
-            plan[iso][p.id] = "ISSY"; // use Issy for simplicity
-            counters.issyPerMonth[p.id] += 1;
-            counters.onsitePerMonth[p.id] += 1;
-          } else {
-            plan[iso][p.id] = "REMOTE";
-          }
-          continue;
-        }
-
-        // Others: default to Issy when capacity remains, else Remote
-        if (dayUsage(iso).ISSY < SITES.ISSY.capacity) {
+function calculateRemotePriority(person, actual, target) {
+  const deficit = target.remote - actual.remote;
+  const basePreference = person.prefs.remoteShare / 100;
+  return deficit * 2 + basePreference;
+}
           plan[iso][p.id] = "ISSY";
           counters.issyPerMonth[p.id] += 1;
           counters.onsitePerMonth[p.id] += 1;
@@ -223,36 +180,6 @@ function generateSchedule({ monthStart, bubbleLuxDates, people = PEOPLE }) {
   return { plan, days: monthDays.map(yyyyMMdd) };
 }
 
-function gcScore(p, wMap) {
-  const base = p.prefs.gcWeight || 0;
-  const have = (wMap?.[p.id] || 0);
-  const needMin = p.prefs.minGCPW || 0;
-  // Boost if below min; slight decay if already has GC this week
-  const boost = have < needMin ? 3 : Math.max(0, 2 - have);
-  // Penalize if max reached
-  const cap = p.prefs.maxGCPW && have >= p.prefs.maxGCPW ? -99 : 0;
-  // Forbid Issy users w/ remoteLow to try GC earlier (Karine)
-  const special = p.prefs.forbidIssy ? 2 : 0;
-  return base + boost + cap + special;
-}
-
-function chunkByWeeks(days) {
-  // Simple weekly chunks Mon-Fri in order; assumes input are only business days
-  const chunks = [];
-  let curr = [];
-  let lastDow = null;
-  for (const d of days) {
-    const dow = d.getDay(); // 1..5
-    if (lastDow !== null && dow < lastDow) {
-      chunks.push(curr);
-      curr = [];
-    }
-    curr.push(d);
-    lastDow = dow;
-  }
-  if (curr.length) chunks.push(curr);
-  return chunks;
-}
 
 // --- UI components ----------------------------------------------------------
 export default function App() {
@@ -521,20 +448,7 @@ function computeUsage(plan, dayISOs) {
 }
 
 function describePrefs(p) {
-  const bits = [];
-  if (p.mustNotRemote) bits.push("no remote");
-  if (p.forbidIssy) bits.push("never Issy");
-  if (p.remoteLow) bits.push("minimize remote");
-  if (p.minIssyPerMonth) bits.push(`≥${p.minIssyPerMonth}/mo Issy`);
-  if (p.minOnsitePerMonth) bits.push(`≥${p.minOnsitePerMonth}/mo onsite`);
-  if (p.minGCPW) bits.push(`≥${p.minGCPW}/wk GC`);
-  if (p.maxGCPW) bits.push(`≤${p.maxGCPW}/wk GC`);
-  if (p.issyConvenient) bits.push("prefers Issy");
-  if (p.gcWeight) bits.push("GC priority");
-  if (p.onsiteDaysPW) bits.push(`${p.onsiteDaysPW}/wk onsite`);
-  if (p.flexible) bits.push("flexible");
-  if (p.wantsSomeGC) bits.push("some GC");
-  return bits.join(" · ");
+  return `GC: ${p.gcShare}% · Issy: ${p.issyShare}% · Remote: ${p.remoteShare}%`;
 }
 
 function generateCSV(state, businessDays, people) {
