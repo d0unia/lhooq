@@ -167,18 +167,6 @@ function calculateRemotePriority(person, actual, target) {
   const basePreference = person.prefs.remoteShare / 100;
   return deficit * 2 + basePreference;
 }
-          plan[iso][p.id] = "ISSY";
-          counters.issyPerMonth[p.id] += 1;
-          counters.onsitePerMonth[p.id] += 1;
-        } else {
-          plan[iso][p.id] = "REMOTE";
-        }
-      }
-    });
-  });
-
-  return { plan, days: monthDays.map(yyyyMMdd) };
-}
 
 
 // --- UI components ----------------------------------------------------------
