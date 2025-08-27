@@ -82,126 +82,126 @@ function generateSchedule({ monthStart, bubbleLuxDates, oooData, people = PEOPLE
     });
   });
 
-  // // Calculate target days for each person based on percentage preferences
-  // // Only count available days (not OOO) for each person
-  // const targetDays = {};
-  // people.forEach((p) => {
-  //   const availableDays = monthDays.filter(d => {
-  //     const iso = yyyyMMdd(d);
-  //     return !oooData[p.id]?.includes(iso);
-  //   }).length;
-  //   
-  //   const gcTarget = Math.round((p.prefs.gcShare / 100) * availableDays);
-  //   const issyTarget = Math.round((p.prefs.issyShare / 100) * availableDays);
-  //   const remoteTarget = availableDays - gcTarget - issyTarget;
-  //   targetDays[p.id] = { gc: gcTarget, issy: issyTarget, remote: remoteTarget };
-  // });
+  // Calculate target days for each person based on percentage preferences
+  // Only count available days (not OOO) for each person
+  const targetDays = {};
+  people.forEach((p) => {
+    const availableDays = monthDays.filter(d => {
+      const iso = yyyyMMdd(d);
+      return !oooData[p.id]?.includes(iso);
+    }).length;
+    
+    const gcTarget = Math.round((p.prefs.gcShare / 100) * availableDays);
+    const issyTarget = Math.round((p.prefs.issyShare / 100) * availableDays);
+    const remoteTarget = availableDays - gcTarget - issyTarget;
+    targetDays[p.id] = { gc: gcTarget, issy: issyTarget, remote: remoteTarget };
+  });
 
-  // // Track actual assignments
-  // const actualDays = {};
-  // people.forEach((p) => {
-  //   actualDays[p.id] = { gc: 0, issy: 0, remote: 0 };
-  //   // Count BubbleLux days as Issy
-  //   const bubbleLuxCount = bubbleLuxDates.filter(iso => !oooData[p.id]?.includes(iso)).length;
-  //   actualDays[p.id].issy = bubbleLuxCount;
-  // });
+  // Track actual assignments
+  const actualDays = {};
+  people.forEach((p) => {
+    actualDays[p.id] = { gc: 0, issy: 0, remote: 0 };
+    // Count BubbleLux days as Issy
+    const bubbleLuxCount = bubbleLuxDates.filter(iso => !oooData[p.id]?.includes(iso)).length;
+    actualDays[p.id].issy = bubbleLuxCount;
+  });
 
-  // // Helper to count site usage for a day
-  // const dayUsage = (iso) => {
-  //   const row = plan[iso];
-  //   return Object.values(row).reduce(
-  //     (acc, site) => {
-  //       acc[site] = (acc[site] || 0) + 1;
-  //       return acc;
-  //     },
-  //     { GC: 0, ISSY: 0, REMOTE: 0, OOO: 0 }
-  //   );
-  // };
+  // Helper to count site usage for a day
+  const dayUsage = (iso) => {
+    const row = plan[iso];
+    return Object.values(row).reduce(
+      (acc, site) => {
+        acc[site] = (acc[site] || 0) + 1;
+        return acc;
+      },
+      { GC: 0, ISSY: 0, REMOTE: 0, OOO: 0 }
+    );
+  };
 
-  // // Process each day (excluding BubbleLux days)
-  // monthDays.forEach((d) => {
-  //   const iso = yyyyMMdd(d);
-  //   if (bubbleLuxDates.includes(iso)) return; // already all Issy
+  // Process each day (excluding BubbleLux days)
+  monthDays.forEach((d) => {
+    const iso = yyyyMMdd(d);
+    if (bubbleLuxDates.includes(iso)) return; // already all Issy
 
-  //   // 1) Fill GC first (priority location)
-  //   const gcCandidates = people
-  //     .filter((p) => plan[iso][p.id] === "REMOTE") // available (not OOO, not BubbleLux)
-  //     .map((p) => ({
-  //       person: p,
-  //       priority: calculateGCPriority(p, actualDays[p.id], targetDays[p.id])
-  //     }))
-  //     .sort((a, b) => b.priority - a.priority);
+    // 1) Fill GC first (priority location)
+    const gcCandidates = people
+      .filter((p) => plan[iso][p.id] === "REMOTE") // available (not OOO, not BubbleLux)
+      .map((p) => ({
+        person: p,
+        priority: calculateGCPriority(p, actualDays[p.id], targetDays[p.id])
+      }))
+      .sort((a, b) => b.priority - a.priority);
 
-  //   for (const candidate of gcCandidates) {
-  //     if (dayUsage(iso).GC >= SITES.GC.capacity) break;
-  //     if (candidate.priority > 0) {
-  //       plan[iso][candidate.person.id] = "GC";
-  //       actualDays[candidate.person.id].gc += 1;
-  //     }
-  //   }
+    for (const candidate of gcCandidates) {
+      if (dayUsage(iso).GC >= SITES.GC.capacity) break;
+      if (candidate.priority > 0) {
+        plan[iso][candidate.person.id] = "GC";
+        actualDays[candidate.person.id].gc += 1;
+      }
+    }
 
-  //   // 1.5) Ensure GC has at least 3 people if anyone is there
-  //   const currentGCCount = dayUsage(iso).GC;
-  //   if (currentGCCount > 0 && currentGCCount < 3) {
-  //     const additionalNeeded = 3 - currentGCCount;
-  //     const availableForGC = people
-  //       .filter((p) => plan[iso][p.id] === "REMOTE")
-  //       .sort((a, b) => calculateGCPriority(b, actualDays[b.id], targetDays[b.id]) - 
-  //                      calculateGCPriority(a, actualDays[a.id], targetDays[a.id]));
-  //     
-  //     for (let i = 0; i < Math.min(additionalNeeded, availableForGC.length); i++) {
-  //       const person = availableForGC[i];
-  //       plan[iso][person.id] = "GC";
-  //       actualDays[person.id].gc += 1;
-  //     }
-  //   }
+    // 1.5) Ensure GC has at least 3 people if anyone is there
+    const currentGCCount = dayUsage(iso).GC;
+    if (currentGCCount > 0 && currentGCCount < 3) {
+      const additionalNeeded = 3 - currentGCCount;
+      const availableForGC = people
+        .filter((p) => plan[iso][p.id] === "REMOTE")
+        .sort((a, b) => calculateGCPriority(b, actualDays[b.id], targetDays[b.id]) - 
+                       calculateGCPriority(a, actualDays[a.id], targetDays[a.id]));
+      
+      for (let i = 0; i < Math.min(additionalNeeded, availableForGC.length); i++) {
+        const person = availableForGC[i];
+        plan[iso][person.id] = "GC";
+        actualDays[person.id].gc += 1;
+      }
+    }
 
-  //   // 2) Assign remaining people to Issy or Remote based on preferences
-  //   const remainingPeople = people.filter((p) => plan[iso][p.id] === "REMOTE");
-  //   
-  //   for (const p of remainingPeople) {
-  //     const issyPriority = calculateIssyPriority(p, actualDays[p.id], targetDays[p.id]);
-  //     const remotePriority = calculateRemotePriority(p, actualDays[p.id], targetDays[p.id]);
-  //     
-  //     if (issyPriority > remotePriority && dayUsage(iso).ISSY < SITES.ISSY.capacity) {
-  //       plan[iso][p.id] = "ISSY";
-  //       actualDays[p.id].issy += 1;
-  //     } else {
-  //       plan[iso][p.id] = "REMOTE";
-  //       actualDays[p.id].remote += 1;
-  //     }
-  //   }
+    // 2) Assign remaining people to Issy or Remote based on preferences
+    const remainingPeople = people.filter((p) => plan[iso][p.id] === "REMOTE");
+    
+    for (const p of remainingPeople) {
+      const issyPriority = calculateIssyPriority(p, actualDays[p.id], targetDays[p.id]);
+      const remotePriority = calculateRemotePriority(p, actualDays[p.id], targetDays[p.id]);
+      
+      if (issyPriority > remotePriority && dayUsage(iso).ISSY < SITES.ISSY.capacity) {
+        plan[iso][p.id] = "ISSY";
+        actualDays[p.id].issy += 1;
+      } else {
+        plan[iso][p.id] = "REMOTE";
+        actualDays[p.id].remote += 1;
+      }
+    }
 
-  //   // 3) Ensure no one is alone at Issy (move to remote if only 1 person)
-  //   const issyOccupants = Object.entries(plan[iso]).filter(([, site]) => site === "ISSY");
-  //   if (issyOccupants.length === 1) {
-  //     const [lonePersonId] = issyOccupants[0];
-  //     plan[iso][lonePersonId] = "REMOTE";
-  //     actualDays[lonePersonId].issy -= 1;
-  //     actualDays[lonePersonId].remote += 1;
-  //   }
-  // });
+    // 3) Ensure no one is alone at Issy (move to remote if only 1 person)
+    const issyOccupants = Object.entries(plan[iso]).filter(([, site]) => site === "ISSY");
+    if (issyOccupants.length === 1) {
+      const [lonePersonId] = issyOccupants[0];
+      plan[iso][lonePersonId] = "REMOTE";
+      actualDays[lonePersonId].issy -= 1;
+      actualDays[lonePersonId].remote += 1;
+    }
+  });
 
   return { plan, days: monthDays.map(yyyyMMdd) };
 }
 
-// function calculateGCPriority(person, actual, target) {
-//   const deficit = target.gc - actual.gc;
-//   const basePreference = person.prefs.gcShare / 100;
-//   return deficit * 2 + basePreference;
-// }
+function calculateGCPriority(person, actual, target) {
+  const deficit = target.gc - actual.gc;
+  const basePreference = person.prefs.gcShare / 100;
+  return deficit * 2 + basePreference;
+}
 
-// function calculateIssyPriority(person, actual, target) {
-//   const deficit = target.issy - actual.issy;
-//   const basePreference = person.prefs.issyShare / 100;
-//   return deficit * 2 + basePreference;
-// }
+function calculateIssyPriority(person, actual, target) {
+  const deficit = target.issy - actual.issy;
+  const basePreference = person.prefs.issyShare / 100;
+  return deficit * 2 + basePreference;
+}
 
-// function calculateRemotePriority(person, actual, target) {
-//   const deficit = target.remote - actual.remote;
-//   const basePreference = person.prefs.remoteShare / 100;
-//   return deficit * 2 + basePreference;
-// }
+function calculateRemotePriority(person, actual, target) {
+  const deficit = target.remote - actual.remote;
+  const basePreference = person.prefs.remoteShare / 100;
+  return deficit * 2 + basePreference;
+}
 
 function gcScore(p, wMap) {
   const base = p.prefs.gcWeight || 0;
