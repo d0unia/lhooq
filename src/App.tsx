@@ -953,7 +953,7 @@ function SiteColumn({ title, siteId, iso, row, onSet }) {
             {availableForQuickAdd.map((p) => (
               <button 
                 key={p.id} 
-                className={\`text-xs underline ${
+                className={`text-xs underline ${
                   row[p.id] === "OOO" 
                     ? "text-neutral-400 line-through cursor-not-allowed" 
                     : "text-neutral-600 hover:text-neutral-800"
