@@ -26,8 +26,8 @@ const PEOPLE = [
   { id: "bertrand", name: "Bertrand", prefs: { gcShare: 70, issyShare: 10, remoteShare: 20 } },
   { id: "florence", name: "Florence", prefs: { gcShare: 60, issyShare: 10, remoteShare: 30 } },
   { id: "nicolas", name: "Nicolas", prefs: { gcShare: 55, issyShare: 15, remoteShare: 30 } },
-  { id: "amelie", name: "Amélie", prefs: { gcShare: 5, issyShare: 5, remoteShare: 90 } },
-  { id: "karine", name: "Karine", prefs: { gcShare: 90, issyShare: 5, remoteShare: 5 } },
+  { id: "amelie", name: "Amélie", prefs: { gcShare: 5, issyShare: 5, remoteShare: 90 }, active: false },
+  { id: "karine", name: "Karine", prefs: { gcShare: 90, issyShare: 5, remoteShare: 5 }, active: true },
   { id: "lea", name: "Léa", prefs: { gcShare: 55, issyShare: 15, remoteShare: 30 } },
   { id: "dounia", name: "Dounia", prefs: { gcShare: 55, issyShare: 15, remoteShare: 30 } },
   { id: "laurent", name: "Laurent", prefs: { gcShare: 45, issyShare: 45, remoteShare: 10 } },
@@ -53,7 +53,13 @@ const isBusinessDay = (d) => !isWeekend(d);
 // Moved to useScheduleData hook
 
 // --- Heuristic generator ----------------------------------------------------
-function generateSchedule({ monthStart, bubbleLuxDates = [], oooData, people = PEOPLE }) {
+function generateSchedule({ monthStart, bubbleLuxDates = [], oooData, people = PEOPLE, peoplePrefs = {} }) {
+  // Filter active people and apply custom preferences
+  const activePeople = people.filter(p => p.active).map(p => ({
+    ...p,
+    prefs: peoplePrefs[p.id] || p.prefs
+  }));
+  
   const monthDays = eachDayOfInterval({ start: startOfMonth(monthStart), end: endOfMonth(monthStart) })
     .filter(isBusinessDay);
 
@@ -61,7 +67,37 @@ function generateSchedule({ monthStart, bubbleLuxDates = [], oooData, people = P
   const plan = {};
   monthDays.forEach((d) => {
     const key = yyyyMMdd(d);
-    plan[key] = Object.fromEntries(people.map((p) => [p.id, "REMOTE"]));
+    plan[key] = Object.fromEntries(activePeople.map((p) => [p.id, "REMOTE"]));
+  });
+
+  // Apply special rules first
+  monthDays.forEach((d) => {
+    const iso = yyyyMMdd(d);
+    const dayOfWeek = d.getDay(); // 0=Sunday, 1=Monday, ..., 6=Saturday
+    
+    // Karine is always at GC except BubbleLux days
+    if (!bubbleLuxDates.includes(iso)) {
+      const karine = activePeople.find(p => p.id === "karine");
+      if (karine && !oooData["karine"]?.includes(iso)) {
+        plan[iso]["karine"] = "GC";
+      }
+    }
+    
+    // Monday and Friday rules
+    if (dayOfWeek === 1 || dayOfWeek === 5) { // Monday or Friday
+      activePeople.forEach(p => {
+        if (oooData[p.id]?.includes(iso)) return; // Skip if OOO
+        if (bubbleLuxDates.includes(iso)) return; // Skip if BubbleLux
+        
+        // Karine, Bertrand, Dounia at GC on Mon/Fri
+        if (["karine", "bertrand", "dounia"].includes(p.id)) {
+          plan[iso][p.id] = "GC";
+        } else {
+          // Everyone else remote on Mon/Fri
+          plan[iso][p.id] = "REMOTE";
+        }
+      });
+    }
   });
 
   // Apply OOO first
@@ -76,7 +112,7 @@ function generateSchedule({ monthStart, bubbleLuxDates = [], oooData, people = P
   // Apply BubbleLux (all at Issy)
   bubbleLuxDates.forEach((iso) => {
     if (!plan[iso]) return;
-    people.forEach((p) => {
+    activePeople.forEach((p) => {
       if (plan[iso][p.id] !== "OOO") {
         plan[iso][p.id] = "ISSY";
       }
@@ -86,7 +122,7 @@ function generateSchedule({ monthStart, bubbleLuxDates = [], oooData, people = P
   // Calculate target days for each person based on percentage preferences
   // Only count available days (not OOO) for each person
   const targetDays = {};
-  people.forEach((p) => {
+  activePeople.forEach((p) => {
     const availableDays = monthDays.filter(d => {
       const iso = yyyyMMdd(d);
       return !oooData[p.id]?.includes(iso);
@@ -100,11 +136,20 @@ function generateSchedule({ monthStart, bubbleLuxDates = [], oooData, people = P
 
   // Track actual assignments
   const actualDays = {};
-  people.forEach((p) => {
+  activePeople.forEach((p) => {
     actualDays[p.id] = { gc: 0, issy: 0, remote: 0 };
     // Count BubbleLux days as Issy
     const bubbleLuxCount = bubbleLuxDates.filter(iso => !oooData[p.id]?.includes(iso)).length;
     actualDays[p.id].issy = bubbleLuxCount;
+    
+    // Count pre-assigned days
+    monthDays.forEach(d => {
+      const iso = yyyyMMdd(d);
+      const assignment = plan[iso][p.id];
+      if (assignment === "GC") actualDays[p.id].gc++;
+      else if (assignment === "ISSY") actualDays[p.id].issy++;
+      else if (assignment === "REMOTE") actualDays[p.id].remote++;
+    });
   });
 
   // Helper to count site usage for a day
@@ -122,10 +167,65 @@ function generateSchedule({ monthStart, bubbleLuxDates = [], oooData, people = P
   // Process each day (excluding BubbleLux days)
   monthDays.forEach((d) => {
     const iso = yyyyMMdd(d);
+    const dayOfWeek = d.getDay();
     if (bubbleLuxDates.includes(iso)) return; // already all Issy
+    if (dayOfWeek === 1 || dayOfWeek === 5) return; // Mon/Fri already handled
+
+    // Tuesday, Wednesday, Thursday: 3-4 people at Issy
+    if (dayOfWeek >= 2 && dayOfWeek <= 4) {
+      const availableForIssy = activePeople
+        .filter((p) => plan[iso][p.id] === "REMOTE") // available (not OOO, not pre-assigned)
+        .map((p) => ({
+          person: p,
+          priority: calculateIssyPriority(p, actualDays[p.id], targetDays[p.id])
+        }))
+        .sort((a, b) => b.priority - a.priority);
+
+      // Assign 3-4 people to Issy
+      const targetIssyCount = Math.min(4, Math.max(3, availableForIssy.length));
+      for (let i = 0; i < Math.min(targetIssyCount, availableForIssy.length); i++) {
+        const candidate = availableForIssy[i];
+        plan[iso][candidate.person.id] = "ISSY";
+        actualDays[candidate.person.id].issy += 1;
+      }
+
+      // Assign remaining people to GC or Remote
+      const remainingPeople = activePeople.filter((p) => plan[iso][p.id] === "REMOTE");
+      
+      for (const p of remainingPeople) {
+        const gcPriority = calculateGCPriority(p, actualDays[p.id], targetDays[p.id]);
+        const remotePriority = calculateRemotePriority(p, actualDays[p.id], targetDays[p.id]);
+        
+        if (gcPriority > remotePriority && dayUsage(iso).GC < SITES.GC.capacity) {
+          plan[iso][p.id] = "GC";
+          actualDays[p.id].gc += 1;
+        } else {
+          plan[iso][p.id] = "REMOTE";
+          actualDays[p.id].remote += 1;
+        }
+      }
+
+      // Ensure GC has at least 3 people if anyone is there
+      const currentGCCount = dayUsage(iso).GC;
+      if (currentGCCount > 0 && currentGCCount < 3) {
+        const additionalNeeded = 3 - currentGCCount;
+        const availableForGC = activePeople
+          .filter((p) => plan[iso][p.id] === "REMOTE")
+          .sort((a, b) => calculateGCPriority(b, actualDays[b.id], targetDays[b.id]) - 
+                         calculateGCPriority(a, actualDays[a.id], targetDays[a.id]));
+        
+        for (let i = 0; i < Math.min(additionalNeeded, availableForGC.length); i++) {
+          const person = availableForGC[i];
+          plan[iso][person.id] = "GC";
+          actualDays[person.id].gc += 1;
+        }
+      }
+      
+      return; // Skip the general allocation for Tue-Thu
+    }
 
     // 1) Fill GC first (priority location)
-    const gcCandidates = people
+    const gcCandidates = activePeople
       .filter((p) => plan[iso][p.id] === "REMOTE") // available (not OOO, not BubbleLux)
       .map((p) => ({
         person: p,
@@ -145,7 +245,7 @@ function generateSchedule({ monthStart, bubbleLuxDates = [], oooData, people = P
     const currentGCCount = dayUsage(iso).GC;
     if (currentGCCount > 0 && currentGCCount < 3) {
       const additionalNeeded = 3 - currentGCCount;
-      const availableForGC = people
+      const availableForGC = activePeople
         .filter((p) => plan[iso][p.id] === "REMOTE")
         .sort((a, b) => calculateGCPriority(b, actualDays[b.id], targetDays[b.id]) - 
                        calculateGCPriority(a, actualDays[a.id], targetDays[a.id]));
@@ -158,7 +258,7 @@ function generateSchedule({ monthStart, bubbleLuxDates = [], oooData, people = P
     }
 
     // 2) Assign remaining people to Issy or Remote based on preferences
-    const remainingPeople = people.filter((p) => plan[iso][p.id] === "REMOTE");
+    const remainingPeople = activePeople.filter((p) => plan[iso][p.id] === "REMOTE");
     
     for (const p of remainingPeople) {
       const issyPriority = calculateIssyPriority(p, actualDays[p.id], targetDays[p.id]);
@@ -239,11 +339,21 @@ function chunkByWeeks(days) {
 export default function App() {
   const { isAuthenticated, login, logout } = useAuth();
   const { state, setState } = useScheduleData();
+  const [peoplePrefs, setPeoplePrefs] = useState(() => {
+    const saved = localStorage.getItem('people_prefs');
+    return saved ? JSON.parse(saved) : {};
+  });
   const [hasGenerated, setHasGenerated] = useState(false);
   const [step1Collapsed, setStep1Collapsed] = useState(false);
   const [step2Collapsed, setStep2Collapsed] = useState(false);
   const [step3Collapsed, setStep3Collapsed] = useState(true);
   const [step4Collapsed, setStep4Collapsed] = useState(true);
+  const [editingPrefs, setEditingPrefs] = useState(false);
+
+  // Save people preferences to localStorage
+  useEffect(() => {
+    localStorage.setItem('people_prefs', JSON.stringify(peoplePrefs));
+  }, [peoplePrefs]);
 
   const monthStart = useMemo(() => new Date(state.monthISO + "T00:00:00"), [state.monthISO]);
   const businessDays = useMemo(
@@ -256,14 +366,59 @@ export default function App() {
   const usageByDay = useMemo(() => computeUsage(state.plan, dayISOs), [state.plan, state.monthISO]);
 
   function handleGenerate() {
-    const { plan, days } = generateSchedule({ 
+    const { plan, days } = generateSchedule({
       monthStart, 
       bubbleLuxDates: currentMonthBubbleLux, 
       oooData: state.oooData || {},
-      people: PEOPLE 
+      people: PEOPLE,
+      peoplePrefs
     });
     setState((s) => ({ ...s, plan, days }));
     setHasGenerated(true);
+  }
+
+  function updatePersonPrefs(personId, field, value) {
+    setPeoplePrefs(prev => ({
+      ...prev,
+      [personId]: {
+        ...PEOPLE.find(p => p.id === personId)?.prefs,
+        ...prev[personId],
+        [field]: Math.max(0, Math.min(100, parseInt(value) || 0))
+      }
+    }));
+  }
+
+  function togglePersonActive(personId) {
+    // This would need to be implemented in the PEOPLE array or state
+    // For now, we'll handle it through peoplePrefs
+    setPeoplePrefs(prev => ({
+      ...prev,
+      [personId]: {
+        ...PEOPLE.find(p => p.id === personId)?.prefs,
+        ...prev[personId],
+        active: !(prev[personId]?.active ?? PEOPLE.find(p => p.id === personId)?.active ?? true)
+      }
+    }));
+  }
+
+  function bulkToggleActive(activate) {
+    const newPrefs = { ...peoplePrefs };
+    PEOPLE.forEach(person => {
+      if (person.id !== 'amelie') { // Don't affect Amélie
+        newPrefs[person.id] = {
+          ...person.prefs,
+          ...newPrefs[person.id],
+          active: activate
+        };
+      }
+    });
+    setPeoplePrefs(newPrefs);
+  }
+
+  function resetPrefsToDefault() {
+    if (confirm('Reset all preferences to default values?')) {
+      setPeoplePrefs({});
+    }
   }
 
   function setBubbleLux(iso) {
@@ -435,7 +590,7 @@ export default function App() {
           </button>
           {!step2Collapsed && (
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {PEOPLE.map((person) => {
+              {PEOPLE.filter(p => p.active && p.id !== 'amelie').map((person) => {
                 const weeks = chunkByWeeks(businessDays);
                 return (
                   <div key={person.id} className="bg-white border rounded-lg p-4">
