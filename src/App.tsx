@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import { addDays, eachDayOfInterval, endOfMonth, format, isSameDay, isWeekend, startOfMonth } from "date-fns";
 import { LogOut, RotateCcw, Download, Upload } from "lucide-react";
 import { useAuth } from "./hooks/useAuth";
@@ -671,150 +671,96 @@ export default function App() {
             <span className={`transform transition-transform ${step3Collapsed ? 'rotate-0' : 'rotate-90'}`}>
               ▶
             </span>
-            People & constraints
+            Active location rules
           </button>
           {!step3Collapsed && (
             <div className="bg-white border rounded-lg p-4">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="font-medium">Team Preferences</h3>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => bulkToggleActive(true)}
-                    className="px-3 py-1 text-xs bg-green-100 text-green-700 rounded hover:bg-green-200"
-                  >
-                    Activate All
-                  </button>
-                  <button
-                    onClick={() => bulkToggleActive(false)}
-                    className="px-3 py-1 text-xs bg-red-100 text-red-700 rounded hover:bg-red-200"
-                  >
-                    Deactivate All
-                  </button>
-                  <button
-                    onClick={resetPrefsToDefault}
-                    className="px-3 py-1 text-xs bg-gray-100 text-gray-700 rounded hover:bg-gray-200"
-                  >
-                    Reset to Default
-                  </button>
-                  <button
-                    onClick={() => setEditingPrefs(!editingPrefs)}
-                    className="px-3 py-1 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200"
-                  >
-                    {editingPrefs ? 'Done Editing' : 'Edit Preferences'}
-                  </button>
+              <div className="grid md:grid-cols-2 gap-6">
+                <div>
+                  <h4 className="font-medium mb-3 text-neutral-800">🦌 Grand-Cerf Rules</h4>
+                  <ul className="space-y-2 text-sm text-neutral-600">
+                    <li className="flex items-start gap-2">
+                      <span className="text-emerald-600 font-medium">•</span>
+                      Maximum capacity: 5 people
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-emerald-600 font-medium">•</span>
+                      Minimum 3 people when occupied (no one works alone)
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-emerald-600 font-medium">•</span>
+                      Priority allocation based on individual preferences
+                    </li>
+                  </ul>
                 </div>
-              </div>
-              
-              <div className="space-y-4">
-                {PEOPLE.map((person) => {
-                  const currentPrefs = {
-                    ...person.prefs,
-                    ...peoplePrefs[person.id]
-                  };
-                  const isActive = currentPrefs.active ?? person.active ?? true;
-                  
-                  return (
-                    <div key={person.id} className={`border rounded-lg p-3 ${!isActive ? 'opacity-50 bg-gray-50' : ''}`}>
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center gap-3">
-                          <button
-                            onClick={() => togglePersonActive(person.id)}
-                            className={`w-4 h-4 rounded border-2 flex items-center justify-center ${
-                              isActive 
-                                ? 'bg-green-500 border-green-500 text-white' 
-                                : 'border-gray-300'
-                            }`}
-                          >
-                            {isActive && '✓'}
-                          </button>
-                          <span className="font-medium">{person.name}</span>
-                          {person.id === 'amelie' && (
-                            <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-1 rounded">
-                              Special case - not in calendar
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                      
-                      {editingPrefs && isActive && person.id !== 'amelie' ? (
-                        <div className="grid grid-cols-3 gap-4">
-                          <div>
-                            <label className="block text-xs text-gray-600 mb-1">🦌 GC %</label>
-                            <input
-                              type="number"
-                              min="0"
-                              max="100"
-                              value={currentPrefs.gcShare}
-                              onChange={(e) => updatePersonPrefs(person.id, 'gcShare', e.target.value)}
-                              className="w-full px-2 py-1 border rounded text-sm"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-xs text-gray-600 mb-1">🏢 Issy %</label>
-                            <input
-                              type="number"
-                              min="0"
-                              max="100"
-                              value={currentPrefs.issyShare}
-                              onChange={(e) => updatePersonPrefs(person.id, 'issyShare', e.target.value)}
-                              className="w-full px-2 py-1 border rounded text-sm"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-xs text-gray-600 mb-1">🏠 Remote %</label>
-                            <input
-                              type="number"
-                              min="0"
-                              max="100"
-                              value={currentPrefs.remoteShare}
-                              onChange={(e) => updatePersonPrefs(person.id, 'remoteShare', e.target.value)}
-                              className="w-full px-2 py-1 border rounded text-sm"
-                            />
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="space-y-1">
-                          <div className="flex justify-between text-xs text-neutral-600 mb-1">
-                            <span>🦌 GC {currentPrefs.gcShare}%</span>
-                            <span>🏢 Issy {currentPrefs.issyShare}%</span>
-                            <span>🏠 Remote {currentPrefs.remoteShare}%</span>
-                          </div>
-                          <div className="flex h-3 rounded-full overflow-hidden bg-neutral-100">
-                            <div 
-                              className="bg-emerald-400"
-                              style={{ width: `${currentPrefs.gcShare}%` }}
-                              title={`🦌 GC: ${currentPrefs.gcShare}%`}
-                            />
-                            <div 
-                              className="bg-blue-400"
-                              style={{ width: `${currentPrefs.issyShare}%` }}
-                              title={`🏢 Issy: ${currentPrefs.issyShare}%`}
-                            />
-                            <div 
-                              className="bg-purple-400"
-                              style={{ width: `${currentPrefs.remoteShare}%` }}
-                              title={`🏠 Remote: ${currentPrefs.remoteShare}%`}
-                            />
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
+                
+                <div>
+                  <h4 className="font-medium mb-3 text-neutral-800">🏢 Issy Rules</h4>
+                  <ul className="space-y-2 text-sm text-neutral-600">
+                    <li className="flex items-start gap-2">
+                      <span className="text-blue-600 font-medium">•</span>
+                      Maximum capacity: 12 people
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-blue-600 font-medium">•</span>
+                      No one works alone (minimum 2 people)
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-blue-600 font-medium">•</span>
+                      BubbleLux days: everyone at Issy (up to 2 per month)
+                    </li>
+                  </ul>
+                </div>
+                
+                <div>
+                  <h4 className="font-medium mb-3 text-neutral-800">🏠 Remote Rules</h4>
+                  <ul className="space-y-2 text-sm text-neutral-600">
+                    <li className="flex items-start gap-2">
+                      <span className="text-purple-600 font-medium">•</span>
+                      Unlimited capacity
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-purple-600 font-medium">•</span>
+                      Default fallback when office capacity is full
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-purple-600 font-medium">•</span>
+                      Respects individual remote work preferences
+                    </li>
+                  </ul>
+                </div>
+                
+                <div>
+                  <h4 className="font-medium mb-3 text-neutral-800">📋 General Rules</h4>
+                  <ul className="space-y-2 text-sm text-neutral-600">
+                    <li className="flex items-start gap-2">
+                      <span className="text-neutral-600 font-medium">•</span>
+                      Out-of-office days override all location assignments
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-neutral-600 font-medium">•</span>
+                      Schedule respects individual percentage preferences
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-neutral-600 font-medium">•</span>
+                      Business days only (Monday to Friday)
+                    </li>
+                  </ul>
+                </div>
               </div>
             </div>
           )}
         </section>
 
-        <section className="mb-6">
+        <section className="mb-10">
           <button
-            onClick={() => setStep5Collapsed(!step5Collapsed)}
+            onClick={() => setStep4Collapsed(!step4Collapsed)}
             className="flex items-center gap-2 font-semibold mb-2 hover:text-neutral-700"
           >
-            <span className={`transform transition-transform ${step5Collapsed ? 'rotate-0' : 'rotate-90'}`}>
+            <span className={`transform transition-transform ${step4Collapsed ? 'rotate-0' : 'rotate-90'}`}>
               ▶
             </span>
-            Active location rules
+            People & constraints — Editable preferences
           </button>
           {!step4Collapsed && (
             <div className="bg-white border rounded-lg p-4">
@@ -859,88 +805,80 @@ export default function App() {
                           <button
                             onClick={() => togglePersonActive(p.id)}
                             className={`px-2 py-1 rounded text-xs ${
-          {!step5Collapsed && (
-            <div className="bg-white border rounded-lg p-4">
-              <div className="grid md:grid-cols-2 gap-6">
-                <div>
-                  <h4 className="font-medium mb-3 text-neutral-800">🦌 Grand-Cerf Rules</h4>
-                  <ul className="space-y-2 text-sm text-neutral-600">
-                    <li className="flex items-start gap-2">
-                      <span className="text-emerald-600 font-medium">•</span>
-                      Maximum capacity: 5 people
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <span className="text-emerald-600 font-medium">•</span>
-                      Minimum 3 people when occupied (no one works alone)
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <span className="text-emerald-600 font-medium">•</span>
-                      Karine, Bertrand, and Dounia at GC on Mondays and Fridays
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <span className="text-emerald-600 font-medium">•</span>
-                      Karine always at GC except BubbleLux days
-                    </li>
-                  </ul>
-                </div>
-                
-                <div>
-                  <h4 className="font-medium mb-3 text-neutral-800">🏢 Issy Rules</h4>
-                  <ul className="space-y-2 text-sm text-neutral-600">
-                    <li className="flex items-start gap-2">
-                      <span className="text-blue-600 font-medium">•</span>
-                      Maximum capacity: 12 people
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <span className="text-blue-600 font-medium">•</span>
-                      3-4 people at Issy on Tuesdays, Wednesdays, and Thursdays
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <span className="text-blue-600 font-medium">•</span>
-                      Rotate people at Issy on Tue/Wed/Thu to ensure variety
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <span className="text-blue-600 font-medium">•</span>
-                      BubbleLux days: everyone at Issy (up to 2 per month)
-                    </li>
-                  </ul>
-                </div>
-                
-                <div>
-                  <h4 className="font-medium mb-3 text-neutral-800">🏠 Remote Rules</h4>
-                  <ul className="space-y-2 text-sm text-neutral-600">
-                    <li className="flex items-start gap-2">
-                      <span className="text-purple-600 font-medium">•</span>
-                      Unlimited capacity
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <span className="text-purple-600 font-medium">•</span>
-                      Everyone remote on Mondays and Fridays (except Karine, Bertrand, Dounia)
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <span className="text-purple-600 font-medium">•</span>
-                      Respects individual remote work preferences
-                    </li>
-                  </ul>
-                </div>
-                
-                <div>
-                  <h4 className="font-medium mb-3 text-neutral-800">📋 Special Cases</h4>
-                  <ul className="space-y-2 text-sm text-neutral-600">
-                    <li className="flex items-start gap-2">
-                      <span className="text-neutral-600 font-medium">•</span>
-                      Amélie is not included in the calendar (special case)
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <span className="text-neutral-600 font-medium">•</span>
-                      Out-of-office days override all location assignments
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <span className="text-neutral-600 font-medium">•</span>
-                      Business days only (Monday to Friday)
-                    </li>
-                  </ul>
-                </div>
+                              isActive 
+                                ? 'bg-green-100 text-green-700 hover:bg-green-200' 
+                                : 'bg-red-100 text-red-700 hover:bg-red-200'
+                            }`}
+                          >
+                            {isActive ? 'Active' : 'Inactive'}
+                          </button>
+                        )}
+                        {isAmelie && (
+                          <span className="px-2 py-1 rounded text-xs bg-gray-100 text-gray-600">
+                            Not in calendar
+                          </span>
+                        )}
+                      </div>
+                      {editingPrefs && !isAmelie && (
+                        <div className="grid grid-cols-3 gap-4 mb-2">
+                          <div>
+                            <label className="text-xs text-neutral-600">GC %</label>
+                            <input
+                              type="number"
+                              min="0"
+                              max="100"
+                              value={currentPrefs.gcShare}
+                              onChange={(e) => updatePersonPrefs(p.id, 'gcShare', e.target.value)}
+                              className="w-full border rounded px-2 py-1 text-sm"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-xs text-neutral-600">Issy %</label>
+                            <input
+                              type="number"
+                              min="0"
+                              max="100"
+                              value={currentPrefs.issyShare}
+                              onChange={(e) => updatePersonPrefs(p.id, 'issyShare', e.target.value)}
+                              className="w-full border rounded px-2 py-1 text-sm"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-xs text-neutral-600">Remote %</label>
+                            <input
+                              type="number"
+                              min="0"
+                              max="100"
+                              value={currentPrefs.remoteShare}
+                              onChange={(e) => updatePersonPrefs(p.id, 'remoteShare', e.target.value)}
+                              className="w-full border rounded px-2 py-1 text-sm"
+                            />
+                          </div>
+                        </div>
+                      )}
+                      <div className="text-xs text-neutral-500 mb-1">
+                        {describePrefs(currentPrefs)}
+                      </div>
+                      <div className="flex h-2 rounded overflow-hidden bg-neutral-200">
+                        <div 
+                          className="bg-emerald-400"
+                          style={{ width: `${currentPrefs.gcShare}%` }}
+                          title={`🦌 GC: ${currentPrefs.gcShare}%`}
+                        />
+                        <div 
+                          className="bg-blue-400"
+                          style={{ width: `${currentPrefs.issyShare}%` }}
+                          title={`🏢 Issy: ${currentPrefs.issyShare}%`}
+                        />
+                        <div 
+                          className="bg-purple-400"
+                          style={{ width: `${currentPrefs.remoteShare}%` }}
+                          title={`🏠 Remote: ${currentPrefs.remoteShare}%`}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}
@@ -990,24 +928,24 @@ function SiteColumn({ title, siteId, iso, row, onSet }) {
       <div className="mt-2 text-xs text-neutral-500">Click a name to cycle GC → Issy → Remote → OOO</div>
       {siteId !== "OOO" && (
         <div className="mt-2">
-        <div className="text-xs text-neutral-500 mb-1">Quick add</div>
-        <div className="flex flex-wrap gap-1">
-          {availableForQuickAdd.map((p) => (
-            <button 
-              key={p.id} 
-              className={`text-xs underline ${
-                row[p.id] === "OOO" 
-                  ? "text-neutral-400 line-through cursor-not-allowed" 
-                  : "text-neutral-600 hover:text-neutral-800"
-              }`}
-              onClick={() => row[p.id] !== "OOO" && onSet(iso, p.id, siteId)}
-              disabled={row[p.id] === "OOO"}
-            >
-              {p.name}
-            </button>
-          ))}
+          <div className="text-xs text-neutral-500 mb-1">Quick add</div>
+          <div className="flex flex-wrap gap-1">
+            {availableForQuickAdd.map((p) => (
+              <button 
+                key={p.id} 
+                className={`text-xs underline ${
+                  row[p.id] === "OOO" 
+                    ? "text-neutral-400 line-through cursor-not-allowed" 
+                    : "text-neutral-600 hover:text-neutral-800"
+                }`}
+                onClick={() => row[p.id] !== "OOO" && onSet(iso, p.id, siteId)}
+                disabled={row[p.id] === "OOO"}
+              >
+                {p.name}
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
       )}
     </div>
   );
