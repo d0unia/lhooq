@@ -975,7 +975,7 @@ function Chip({ children, onClick, isOOO = false }) {
   return (
     <button 
       onClick={onClick} 
-      className={\`px-2 py-1 rounded-full text-xs hover:opacity-90 ${
+      className={`px-2 py-1 rounded-full text-xs hover:opacity-90 ${
         isOOO 
           ? "bg-red-100 text-red-700 border border-red-300" 
           : "bg-neutral-900 text-white"
